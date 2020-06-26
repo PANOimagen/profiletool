@@ -334,7 +334,7 @@ class PTDockWidget(QDockWidget, FormClass):
         self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw,
                                           False)
         layer1.dataChanged.connect(self.refreshPlot)
-
+        layer1.willBeDeleted.connect(self.removeLayer)
 
     def removeLayer(self, index=None):
         #if index is None:
