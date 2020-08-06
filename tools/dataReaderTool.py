@@ -156,7 +156,7 @@ class DataReaderTool:
             for n, coords in enumerate(zip(x, y)):
                 ident = layer.identify(QgsPointXY(*coords))
                 try:
-                    attr = float(ident[1].values()[choosenBand])
+                    attr = float(list(ident[1].values())[choosenBand])
                 except:
                     attr = 0
                 z.append(attr)
@@ -171,7 +171,8 @@ class DataReaderTool:
                     qgis.gui.QgsMapToolIdentify.MeshLayer)[0]
                 
                 try:
-                    attr = float(ident.mAttributes['Scalar Value'])
+                    # Add traduction of attribute: attr = float(ident.mAttributes['Scalar Value']) 
+                    attr = float(list(ident.mAttributes.values())[0])
                 except (AttributeError, ValueError):
                     attr = 0
                 z.append(attr)
