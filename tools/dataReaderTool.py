@@ -171,7 +171,7 @@ class DataReaderTool:
                     qgis.gui.QgsMapToolIdentify.MeshLayer)[0]
                 
                 try:
-                    attr = float(ident.mAttributes['Scalar Value']) 
+                    attr = float(ident.mAttributes['Scalar Value'])
                 except (AttributeError, ValueError):
                     attr = 0
                 z.append(attr)
