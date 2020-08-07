@@ -60,7 +60,7 @@ class TableViewTool(QtCore.QObject):
 
             if len(templist) == 0:
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", "No raster to add")
-                return
+                return None
             else:
                 testqt, ok = QInputDialog.getItem(iface.mainWindow(), "Layer selector", "Choose layer", [templist[k][1] for k in range( len(templist) )], False)
                 if ok:
@@ -68,7 +68,7 @@ class TableViewTool(QtCore.QObject):
                         if templist[i][1] == testqt:
                             layer2 = templist[i][0]
                 else:
-                    return
+                    return None
         else :
             if isProfilable(layer1):
                 layer2 = layer1
@@ -77,7 +77,7 @@ class TableViewTool(QtCore.QObject):
                 if layer1.type() == layer1.MeshLayer:
                     text +="\n(MeshLayer support requires QGis version 3.6 or newer.)"
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", text)
-                return
+                return None
 
         # Ask the Band by a input dialog
         #First, if isProfilable, considerate the real band number (instead of band + 1 for raster)
@@ -106,7 +106,7 @@ class TableViewTool(QtCore.QObject):
             if ok :
                 choosenBand = int(testqt) - self.bandoffset
             else:
-                return 2
+                choosenBand = 2
         elif layer2.type() == layer2.VectorLayer :
             fieldstemp = [field.name() for field in layer2.fields() ]
             if int(QtCore.QT_VERSION_STR[0]) == 4 :    #qgis2
@@ -116,7 +116,7 @@ class TableViewTool(QtCore.QObject):
                 fields = [field.name() for field in layer2.fields() if field.isNumeric()]
             if len(fields)==0:
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", "Active layer is not a profilable layer")
-                return
+                return None
             elif len(fields) == 1 :
                 choosenBand = fieldstemp.index(fields[0])
 
@@ -134,7 +134,7 @@ class TableViewTool(QtCore.QObject):
                 if ok:
                     choosenBand = fieldstemp.index(testqt)
                 else:
-                    return defaultfield
+                    choosenBand = defaultfield
 
         else:
             choosenBand = 0
@@ -168,6 +168,7 @@ class TableViewTool(QtCore.QObject):
         mdl.setData( mdl.index(row, 5, QModelIndex())  ,layer2)
         mdl.item(row,5).setFlags(QtCore.Qt.NoItemFlags)
         self.layerAddedOrRemoved.emit()
+        return row
 
 
     def removeLayer(self, mdl, index):

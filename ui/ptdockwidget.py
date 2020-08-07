@@ -330,11 +330,11 @@ class PTDockWidget(QDockWidget, FormClass):
         if layer1 is None:
             layer1 = self.iface.activeLayer()
         """
-        self.tableViewTool.addLayer(self.iface, self.mdl, layer1)
+        index = self.tableViewTool.addLayer(self.iface, self.mdl, layer1)
         self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw,
                                           False)
         layer1.dataChanged.connect(self.refreshPlot)
-        layer1.willBeDeleted.connect(self.removeLayer)
+        layer1.willBeDeleted.connect(lambda: self.removeLayer(index))
 
     def removeLayer(self, index=None):
         #if index is None:
