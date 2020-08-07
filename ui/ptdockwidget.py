@@ -330,17 +330,19 @@ class PTDockWidget(QDockWidget, FormClass):
         if layer1 is None:
             layer1 = self.iface.activeLayer()
         """
-        index = self.tableViewTool.addLayer(self.iface, self.mdl, layer1)
+        layername = self.tableViewTool.addLayer(self.iface, self.mdl, layer1)
         self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw,
                                           False)
         layer1.dataChanged.connect(self.refreshPlot)
-        layer1.willBeDeleted.connect(lambda: self.removeLayer(index))
+        layer1.willBeDeleted.connect(lambda: self.removeLayer(layername=layername))
 
-    def removeLayer(self, index=None):
+    def removeLayer(self, index=None, layername=None):
         #if index is None:
         if isinstance(index,bool):  #come from button
             index = self.tableViewTool.chooseLayerForRemoval(self.iface, self.mdl)
-
+        if layername is not None:
+            layernames = [self.mdl.item(i, 2).data(QtCore.Qt.EditRole) for i in range(self.mdl.rowCount())]
+            index = layernames.index(layername)
         if index is not None:
             layer = self.mdl.index(index, 4).data()
             try:

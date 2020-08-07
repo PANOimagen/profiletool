@@ -168,7 +168,7 @@ class TableViewTool(QtCore.QObject):
         mdl.setData( mdl.index(row, 5, QModelIndex())  ,layer2)
         mdl.item(row,5).setFlags(QtCore.Qt.NoItemFlags)
         self.layerAddedOrRemoved.emit()
-        return row
+        return layer2.name()
 
 
     def removeLayer(self, mdl, index):
