@@ -156,7 +156,7 @@ class DataReaderTool:
             for n, coords in enumerate(zip(x, y)):
                 ident = layer.identify(QgsPointXY(*coords))
                 try:
-                    attr = float(ident[1].values()[choosenBand])
+                    attr = float(list(ident[1].values())[choosenBand])
                 except:
                     attr = 0
                 z.append(attr)

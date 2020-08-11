@@ -135,6 +135,23 @@ class TableViewTool(QtCore.QObject):
                     choosenBand = fieldstemp.index(testqt)
                 else:
                     return defaultfield
+        elif layer2.type() == layer2.PluginLayer and  isProfilable(layer2) and layer2.LAYER_TYPE == 'selafin_viewer':
+            listparameterband = []
+            listparametername = []
+            for i in range(0,layer2.bandCount()):
+                listparameterband.append(layer2.hydrauparser.parametres[i][0])
+                listparametername.append(layer2.hydrauparser.parametres[i][1])
+            defaultparam = 3
+            testqt, ok = QInputDialog.getItem(
+                iface.mainWindow(),
+                typename.capitalize() + " selector",
+                "Choose the " + typename,
+                listparametername,
+                defaultparam)
+            if ok:
+                choosenBand = listparameterband[listparametername.index(testqt)]
+            else:
+                return defaultparam
 
         else:
             choosenBand = 0
@@ -146,15 +163,21 @@ class TableViewTool(QtCore.QObject):
         mdl.item(row,0).setFlags(QtCore.Qt.ItemIsSelectable)
         lineColour = QtCore.Qt.red
         #QGis2
-        if layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == 'crayfish_viewer' or \
-           layer2.type() == layer2.MeshLayer:    #QGis3
+        if (
+            (layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == 'crayfish_viewer')
+            or (layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == 'selafin_viewer')
+            or layer2.type() == layer2.MeshLayer
+		   ):    
             lineColour = QtCore.Qt.blue
         mdl.setData( mdl.index(row, 1, QModelIndex())  ,QColor(lineColour) , QtCore.Qt.BackgroundRole)
         mdl.item(row,1).setFlags(QtCore.Qt.NoItemFlags)
         mdl.setData( mdl.index(row, 2, QModelIndex())  ,layer2.name())
         mdl.item(row,2).setFlags(QtCore.Qt.NoItemFlags)
-        mdl.setData( mdl.index(row, 3, QModelIndex())  ,choosenBand + self.bandoffset)
-        mdl.item(row,3).setFlags(QtCore.Qt.NoItemFlags)
+        if layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == 'selafin_viewer':
+            mdl.setData( mdl.index(row, 3, QModelIndex())  ,choosenBand + self.bandoffset)
+        else:
+            mdl.setData( mdl.index(row, 3, QModelIndex())  ,choosenBand + self.bandoffset)
+            mdl.item(row,3).setFlags(QtCore.Qt.NoItemFlags)
 
         if layer2.type() == layer2.VectorLayer :
             #mdl.setData( mdl.index(row, 4, QModelIndex())  ,QVariant(100.0))
