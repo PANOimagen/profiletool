@@ -30,6 +30,7 @@ import numpy as np
 import platform
 from math import sqrt
 from .utils import isProfilable
+from qgis.PyQt.QtCore import QCoreApplication
 
 
 class DataReaderTool:
@@ -163,6 +164,7 @@ class DataReaderTool:
                 self._status_update( (100*n) // (len(x) - 1) )
         elif layer.type() == layer.MeshLayer:
             identifier = qgis.gui.QgsMapToolIdentify(qgis.utils.iface.mapCanvas())
+            meshFld = QCoreApplication.translate('QgsMapToolIdentify','Scalar Value')
             for n, coords in enumerate(zip(x, y)):
                 ident = identifier.identify(
                     QgsGeometry.fromPointXY(QgsPointXY(*coords)),
@@ -171,7 +173,7 @@ class DataReaderTool:
                     qgis.gui.QgsMapToolIdentify.MeshLayer)[0]
                 
                 try:
-                    attr = float(ident.mAttributes['Scalar Value'])
+                    attr = float(ident.mAttributes[meshFld])
                 except (AttributeError, ValueError):
                     attr = 0
                 z.append(attr)
