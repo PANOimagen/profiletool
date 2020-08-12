@@ -80,7 +80,10 @@ class SelectLineTool:
         #
         iter = layer.getFeatures()
         while iter.nextFeature(f):
-            layerindex.insertFeature(f)
+            try: #qgis > 3.4
+                layerindex.addFeature(f)
+            except: #qgis < 3.4
+                layerindex.insertFeature(f)
         # get the feature which has the closest bounding box using the spatial index
         nearest = layerindex.nearestNeighbor( point, 1 )
         featureId = nearest[0] if len(nearest) > 0 else None
