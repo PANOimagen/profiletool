@@ -111,9 +111,9 @@ class TableViewTool(QtCore.QObject):
             fieldstemp = [field.name() for field in layer2.fields() ]
             if int(QtCore.QT_VERSION_STR[0]) == 4 :    #qgis2
                 fields = [field.name() for field in layer2.fields() if field.type() in [2,3,4,5,6]]
-
             elif int(QtCore.QT_VERSION_STR[0]) == 5 :    #qgis3
                 fields = [field.name() for field in layer2.fields() if field.isNumeric()]
+
             if len(fields)==0:
                 QMessageBox.warning(iface.mainWindow(), "Profile tool", "Active layer is not a profilable layer")
                 return
@@ -159,20 +159,23 @@ class TableViewTool(QtCore.QObject):
         #Complete the tableview
         row = mdl.rowCount()
         mdl.insertRow(row)
+
         mdl.setData(mdl.index(row, 0, QModelIndex())  ,True, QtCore.Qt.CheckStateRole)
         mdl.item(row,0).setFlags(QtCore.Qt.ItemIsSelectable)
+
         lineColour = QtCore.Qt.red
-        #QGis2
         if (
             (layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == 'crayfish_viewer')
             or (layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == 'selafin_viewer')
             or layer2.type() == layer2.MeshLayer
-		   ):    
+		):
             lineColour = QtCore.Qt.blue
-        mdl.setData( mdl.index(row, 1, QModelIndex())  ,QColor(lineColour) , QtCore.Qt.BackgroundRole)
+        mdl.setData( mdl.index(row, 1, QModelIndex()), QColor(lineColour), QtCore.Qt.BackgroundRole)
         mdl.item(row,1).setFlags(QtCore.Qt.NoItemFlags)
-        mdl.setData( mdl.index(row, 2, QModelIndex())  ,layer2.name())
+
+        mdl.setData( mdl.index(row, 2, QModelIndex()), layer2.name())
         mdl.item(row,2).setFlags(QtCore.Qt.NoItemFlags)
+
         if layer2.type() == layer2.PluginLayer and layer2.LAYER_TYPE == 'selafin_viewer':
             mdl.setData( mdl.index(row, 3, QModelIndex())  ,choosenBand + self.bandoffset)
         else:
@@ -180,16 +183,14 @@ class TableViewTool(QtCore.QObject):
             mdl.item(row,3).setFlags(QtCore.Qt.NoItemFlags)
 
         if layer2.type() == layer2.VectorLayer :
-            #mdl.setData( mdl.index(row, 4, QModelIndex())  ,QVariant(100.0))
             mdl.setData(mdl.index(row, 4, QModelIndex()), 100.0)
-            #mdl.item(row,3).setFlags(Qt.NoItemFlags)
         else:
             mdl.setData(mdl.index(row, 4, QModelIndex()), '')
             mdl.item(row,4).setFlags(QtCore.Qt.NoItemFlags)
 
-
         mdl.setData( mdl.index(row, 5, QModelIndex())  ,layer2)
         mdl.item(row,5).setFlags(QtCore.Qt.NoItemFlags)
+
         self.layerAddedOrRemoved.emit()
 
 
@@ -201,7 +202,6 @@ class TableViewTool(QtCore.QObject):
                 return
 
     def chooseLayerForRemoval(self, iface, mdl):
-
         if mdl.rowCount() < 2:
             if mdl.rowCount() == 1:
                 return 0
@@ -217,23 +217,52 @@ class TableViewTool(QtCore.QObject):
                     return i
         return None
 
-    def onClick(self, iface, wdg, mdl, plotlibrary, index1):                    #action when clicking the tableview
+    def onClick(self, iface, wdg, mdl, plotlibrary, index1):  # action when clicking the tableview
         temp = mdl.itemFromIndex(index1)
-        if index1.column() == 1:                #modifying color
-            name = ("%s#%d") % (mdl.item(index1.row(),2).data(QtCore.Qt.EditRole), mdl.item(index1.row(),3).data(QtCore.Qt.EditRole))
+        if index1.column() == 1:  # modifying color
+            name = ("%s#%d") % (
+                mdl.item(index1.row(), 2).data(QtCore.Qt.EditRole),
+                mdl.item(index1.row(), 3).data(QtCore.Qt.EditRole),
+            )
             color = QColorDialog().getColor(temp.data(QtCore.Qt.BackgroundRole))
-            mdl.setData( mdl.index(temp.row(), 1, QModelIndex())  ,color , QtCore.Qt.BackgroundRole)
+            mdl.setData(mdl.index(temp.row(), 1, QModelIndex()), color, QtCore.Qt.BackgroundRole)
             PlottingTool().changeColor(wdg, plotlibrary, color, name)
-        elif index1.column() == 0:                #modifying checkbox
-            #name = mdl.item(index1.row(),2).data(Qt.EditRole)
-            name = ("%s#%d") % (mdl.item(index1.row(),2).data(QtCore.Qt.EditRole), mdl.item(index1.row(),3).data(QtCore.Qt.EditRole))
+        elif index1.column() == 0:  # modifying checkbox
+            name = ("%s#%d") % (
+                mdl.item(index1.row(), 2).data(QtCore.Qt.EditRole),
+                mdl.item(index1.row(), 3).data(QtCore.Qt.EditRole),
+            )
             booltemp = temp.data(QtCore.Qt.CheckStateRole)
             if booltemp == True:
                 booltemp = False
             else:
                 booltemp = True
-            mdl.setData( mdl.index(temp.row(), 0, QModelIndex())  ,booltemp, QtCore.Qt.CheckStateRole)
+            mdl.setData(mdl.index(temp.row(), 0, QModelIndex()), booltemp, QtCore.Qt.CheckStateRole)
             PlottingTool().changeAttachCurve(wdg, plotlibrary, booltemp, name)
+        elif (
+            index1.column() == 3
+            and mdl.item(index1.row(), 5).data(QtCore.Qt.EditRole).type() == mdl.item(index1.row(), 5).data(QtCore.Qt.EditRole).PluginLayer
+            and mdl.item(index1.row(), 5).data(QtCore.Qt.EditRole).LAYER_TYPE == "selafin_viewer"
+        ):  # modifying selafin_viewer parameter
+            layer = mdl.item(index1.row(), 5).data(QtCore.Qt.EditRole)
+            listparameterband = []
+            listparametername = []
+            for i in range(0,layer.bandCount()):
+                listparameterband.append(layer.hydrauparser.parametres[i][0])
+                listparametername.append(layer.hydrauparser.parametres[i][1])
+            defaultparam = 3
+            testqt, ok = QInputDialog.getItem(
+                iface.mainWindow(),
+                "Parameter selector",
+                "Choose the parameter",
+                listparametername,
+                defaultparam)
+            if ok:
+                choosenBand = listparameterband[listparametername.index(testqt)]
+            else:
+                choosenBand = defaultparam
+            mdl.setData(mdl.index(temp.row(), 3, QModelIndex()), choosenBand)
+
         elif False and index1.column() == 4:
             #name = mdl.item(index1.row(),2).data(Qt.EditRole)
             name = mdl.item(index1.row(),4).data(QtCore.Qt.EditRole)
