@@ -250,17 +250,17 @@ class TableViewTool(QtCore.QObject):
             for i in range(0,layer.bandCount()):
                 listparameterband.append(layer.hydrauparser.parametres[i][0])
                 listparametername.append(layer.hydrauparser.parametres[i][1])
-            defaultparam = 3
+            previousparam = int(mdl.item(index1.row(), 3).data(QtCore.Qt.EditRole))
             testqt, ok = QInputDialog.getItem(
                 iface.mainWindow(),
                 "Parameter selector",
                 "Choose the parameter",
                 listparametername,
-                defaultparam)
+                previousparam)
             if ok:
                 choosenBand = listparameterband[listparametername.index(testqt)]
             else:
-                choosenBand = defaultparam
+                choosenBand = previousparam
             mdl.setData(mdl.index(temp.row(), 3, QModelIndex()), choosenBand)
 
         elif False and index1.column() == 4:
