@@ -262,6 +262,7 @@ class TableViewTool(QtCore.QObject):
             else:
                 choosenBand = previousparam
             mdl.setData(mdl.index(temp.row(), 3, QModelIndex()), choosenBand)
+            self.layerAddedOrRemoved.emit()
 
         elif False and index1.column() == 4:
             #name = mdl.item(index1.row(),2).data(Qt.EditRole)
