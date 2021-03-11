@@ -553,6 +553,7 @@ class PTDockWidget(QDockWidget, FormClass):
 
     def closeEvent(self, event):
         self.closed.emit()
+        self.profiletoolcore.cleaning()
         #self.butSaveAs.clicked.disconnect(self.saveAs)
         #return QDockWidget.closeEvent(self, event)
 
