@@ -290,12 +290,10 @@ class ProfileToolCore(QWidget):
         self.clearProfil()
         if self.toolrenderer:
             self.toolrenderer.cleaning()
-            try:
-                self.instance.layersRemoved.connect(
-                    lambda: self.removeClosedLayers(self.dockwidget.mdl)
-                )
-            except:
-                pass
+        try:
+            self.instance.layersRemoved.disconnect()
+        except:
+            pass
 
 
     #******************************************************************************************
