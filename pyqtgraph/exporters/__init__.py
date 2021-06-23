@@ -4,7 +4,7 @@ from .SVGExporter import *
 from .Matplotlib import *
 from .CSVExporter import *
 from .PrintExporter import *
-# from .HDF5Exporter import * - see issue #23 on PANOimagen/profiletool
+from .HDF5Exporter import *
 
 def listExporters():
     return Exporter.Exporters[:]

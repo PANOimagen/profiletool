@@ -2,7 +2,7 @@
 """
 ptime.py -  Precision time function made os-independent (should have been taken care of by python)
 Copyright 2010  Luke Campagnola
-Distributed under MIT/X11 license. See license.txt for more infomation.
+Distributed under MIT/X11 license. See license.txt for more information.
 """
 
 
@@ -20,8 +20,7 @@ time = None
 
 def winTime():
     """Return the current time in seconds with high precision (windows version, use Manager.time() to stay platform independent)."""
-    return clock() - START_TIME
-    #return systime.time()
+    return clock() + START_TIME
 
 def unixTime():
     """Return the current time in seconds with high precision (unix version, use Manager.time() to stay platform independent)."""
