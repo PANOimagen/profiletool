@@ -375,56 +375,53 @@ class ProfileToolCore(QWidget):
 
 
     def mouseMovedPyQtGraph(self, pos): # si connexion directe du signal "mouseMoved" : la fonction reçoit le point courant
-            roundvalue = 3
 
-            if self.dockwidget.plotWdg.sceneBoundingRect().contains(pos): # si le point est dans la zone courante
+        if self.dockwidget.plotWdg.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor: # si le point est dans la zone courante
+            range = self.dockwidget.plotWdg.getViewBox().viewRange()
+            mousePoint = self.dockwidget.plotWdg.getViewBox().mapSceneToView(pos) # récupère le point souris à partir ViewBox
 
-                if self.dockwidget.showcursor :
-                    range = self.dockwidget.plotWdg.getViewBox().viewRange()
-                    mousePoint = self.dockwidget.plotWdg.getViewBox().mapSceneToView(pos) # récupère le point souris à partir ViewBox
+            datas = []
+            pitems = self.dockwidget.plotWdg.getPlotItem()
+            ytoplot = None
+            xtoplot = None
 
-                    datas = []
-                    pitems = self.dockwidget.plotWdg.getPlotItem()
+            if len(pitems.listDataItems()) > 0:
+                #get data and nearest xy from cursor
+                compt = 0
+                try:
+                    for item in pitems.listDataItems():
+                        if item.isVisible() :
+                            x,y = item.getData()
+                            nearestindex = np.argmin(abs(np.array(x, dtype=float) - mousePoint.x()))
+                            if compt == 0:
+                                xtoplot = np.array(x, dtype=float)[nearestindex]
+                                ytoplot = np.array(y)[nearestindex]
+                            else:
+                                if abs(np.array(y)[nearestindex] - mousePoint.y()) < abs(ytoplot -  mousePoint.y()):
+                                    ytoplot = np.array(y)[nearestindex]
+                                    xtoplot = np.array(x)[nearestindex]
+                            compt += 1
+                except (IndexError, ValueError):
                     ytoplot = None
                     xtoplot = None
-
-                    if len(pitems.listDataItems())>0:
-                        #get data and nearest xy from cursor
-                        compt = 0
-                        try:
-                            for  item in pitems.listDataItems():
-                                if item.isVisible() :
-                                    x,y = item.getData()
-                                    nearestindex = np.argmin( abs(np.array(x)-mousePoint.x()) )
-                                    if compt == 0:
-                                        xtoplot = np.array(x)[nearestindex]
-                                        ytoplot = np.array(y)[nearestindex]
-                                    else:
-                                        if abs( np.array(y)[nearestindex] - mousePoint.y() ) < abs( ytoplot -  mousePoint.y() ):
-                                            ytoplot = np.array(y)[nearestindex]
-                                            xtoplot = np.array(x)[nearestindex]
-                                    compt += 1
-                        except ValueError:
-                            ytoplot = None
-                            xtoplot = None
-                        #plot xy label and cursor
-                        if not xtoplot is None and not ytoplot is None:
-                            for item in self.dockwidget.plotWdg.allChildItems():
-                                if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
-                                    if item.name() == 'cross_vertical':
-                                        item.show()
-                                        item.setPos(xtoplot)
-                                    elif item.name() == 'cross_horizontal':
-                                        item.show()
-                                        item.setPos(ytoplot)
-                                elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
-                                    if item.textItem.toPlainText()[0] == 'X':
-                                        item.show()
-                                        item.setText('X : '+str(round(xtoplot,roundvalue)))
-                                        item.setPos(xtoplot,range[1][0] )
-                                    elif item.textItem.toPlainText()[0] == 'Y':
-                                        item.show()
-                                        item.setText('Y : '+str(round(ytoplot,roundvalue)))
-                                        item.setPos(range[0][0],ytoplot )
-                    #tracking part
-                    self.updateCursorOnMap(xtoplot)
+                #plot xy label and cursor
+                if not xtoplot is None and not ytoplot is None:
+                    for item in self.dockwidget.plotWdg.allChildItems():
+                        if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
+                            if item.name() == 'cross_vertical':
+                                item.show()
+                                item.setPos(xtoplot)
+                            elif item.name() == 'cross_horizontal':
+                                item.show()
+                                item.setPos(ytoplot)
+                        elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
+                            if item.textItem.toPlainText()[0] == 'X':
+                                item.show()
+                                item.setText('X : '+str(round(xtoplot, 3)))
+                                item.setPos(xtoplot,range[1][0] )
+                            elif item.textItem.toPlainText()[0] == 'Y':
+                                item.show()
+                                item.setText('Y : '+str(round(ytoplot, 3)))
+                                item.setPos(range[0][0],ytoplot )
+            #tracking part
+            self.updateCursorOnMap(xtoplot)
