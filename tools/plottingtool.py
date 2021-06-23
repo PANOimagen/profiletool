@@ -199,7 +199,7 @@ class PlottingTool:
             for i, profile in enumerate(profiles):
                 tmp_name = ("%s#%d") % (profile["layer"].name(), profile["band"])
                 #case line outside the raster
-                y = np.array(profile["plot_y"], dtype=np.float)  #replace None value by np.nan
+                y = np.array(profile["plot_y"], dtype=float)  #replace None value by np.nan
                 x = np.array(profile["plot_x"])
                 wdg.plotWdg.plot(x, y, pen=pg.mkPen( model1.item(i,1).data(Qt.BackgroundRole),  width=2) , name = tmp_name)
                 #set it visible or not
