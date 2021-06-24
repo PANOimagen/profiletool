@@ -2353,7 +2353,7 @@ class RulerROI(LineSegmentROI):
 
 
 class TriangleROI(ROI):
-    """
+    r"""
     Equilateral triangle ROI subclass with one scale handle and one rotation handle.
     Arguments
     pos            (length-2 sequence) The position of the ROI's origin.
