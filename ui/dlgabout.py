@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-#-----------------------------------------------------------
+# -----------------------------------------------------------
 #
 # Profile
 # Copyright (C) 2012  Patrice Verchere
-#-----------------------------------------------------------
+# -----------------------------------------------------------
 #
 # licensed under the terms of GNU GPL 2
 #
@@ -21,35 +21,31 @@
 # with this program; if not, print to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-#---------------------------------------------------------------------
+# ---------------------------------------------------------------------
+
+import os
+import platform
 
 from qgis.PyQt import uic
 from qgis.PyQt.QtCore import *
 from qgis.PyQt.QtGui import *
 from qgis.PyQt.QtWidgets import QDialog
 
-import platform
-import os
-
-uiFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__), 'about.ui'))
+uiFilePath = os.path.abspath(os.path.join(os.path.dirname(__file__), "about.ui"))
 FormClass = uic.loadUiType(uiFilePath)[0]
 
+
 class DlgAbout(QDialog, FormClass):
+    def __init__(self, parent=None):
+        QDialog.__init__(self, parent)
+        self.setupUi(self)
 
-	def __init__(self, parent=None):
-		QDialog.__init__(self, parent)
-		self.setupUi(self)
+        fp = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), "metadata.txt")
 
-		fp = os.path.join( os.path.abspath(os.path.join(os.path.dirname(__file__),"..")) , "metadata.txt")
+        iniText = QSettings(fp, QSettings.IniFormat)
+        verno = iniText.value("version")
+        name = iniText.value("name")
+        description = iniText.value("description")
 
-		iniText = QSettings(fp, QSettings.IniFormat)
-		verno = iniText.value("version")
-		name = iniText.value("name")
-		description = iniText.value("description")
-
-		self.title.setText( name )
-		self.description.setText( description  + " - " + verno)
-
-
-
-
+        self.title.setText(name)
+        self.description.setText(description + " - " + verno)
