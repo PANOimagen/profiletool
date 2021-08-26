@@ -163,10 +163,12 @@ class PTDockWidget(QDockWidget, FormClass):
             self.checkBox_mpl_tracking.setCheckState(2)
             self.profiletoolcore.activateMouseTracking(2)
             self.checkBox_mpl_tracking.stateChanged.connect(self.profiletoolcore.activateMouseTracking)
+            self.cbSameAxisScale.setCheckState(Qt.Unchecked)
 
         else:
             self.checkBox_mpl_tracking.setCheckState(0)
             self.checkBox_mpl_tracking.setEnabled(False)
+            self.cbSameAxisScale.setCheckState(Qt.Unchecked)
 
 
         self.cbSameAxisScale.setEnabled(self.plotlibrary == 'PyQtGraph')
