@@ -123,6 +123,8 @@ class PTDockWidget(QDockWidget, FormClass):
         self.fullResolutionCheckBox.stateChanged.connect(self.refreshPlot)
         self.profileInterpolationCheckBox.stateChanged.connect(self.refreshPlot)
 
+        self.cbSameAxisScale.stateChanged.connect(self._onSameAxisScaleStateChanged)
+
     #********************************************************************************
     #init things ****************************************************************
     #********************************************************************************
@@ -153,7 +155,7 @@ class PTDockWidget(QDockWidget, FormClass):
             self.checkBox_mpl_tracking.setCheckState(2)
             self.profiletoolcore.activateMouseTracking(2)
             self.checkBox_mpl_tracking.stateChanged.connect(self.profiletoolcore.activateMouseTracking)
-
+            self._onSameAxisScaleStateChanged(self.cbSameAxisScale.checkState())
 
         elif self.plotlibrary == 'Matplotlib':
             self.checkBox_mpl_tracking.setEnabled(True)
@@ -166,6 +168,8 @@ class PTDockWidget(QDockWidget, FormClass):
             self.checkBox_mpl_tracking.setCheckState(0)
             self.checkBox_mpl_tracking.setEnabled(False)
 
+
+        self.cbSameAxisScale.setEnabled(self.plotlibrary == 'PyQtGraph')
 
 
     def addPlotWidget(self, library):
@@ -372,6 +376,17 @@ class PTDockWidget(QDockWidget, FormClass):
                 and self.mdl.item(item.row(),5).data(QtCore.Qt.EditRole).type() == qgis.core.QgsMapLayer.VectorLayer):
 
             self.profiletoolcore.plotProfil()
+
+    def _onSameAxisScaleStateChanged(self, state):
+        """
+        Called whenever the checkbox button for same scale axis status has changed
+        if checked, plot will always keep same scale on both axis (aspect ratio of 1)
+
+        Only supported with PyQtGraph
+        """
+
+        if ( self.plotlibrary == 'PyQtGraph' ):
+            self.plotWdg.getViewBox().setAspectLocked(state == Qt.Checked)
 
     #********************************************************************************
     #coordinate tab ****************************************************************
