@@ -2,7 +2,7 @@
 """
 configfile.py - Human-readable text configuration file library 
 Copyright 2010  Luke Campagnola
-Distributed under MIT/X11 license. See license.txt for more infomation.
+Distributed under MIT/X11 license. See license.txt for more information.
 
 Used for reading and writing dictionary objects to a python-like configuration
 file format. Data structures may be nested and contain any data type as long
@@ -11,7 +11,7 @@ as it can be converted to/from a string using repr and eval.
 
 import re, os, sys, datetime
 import numpy
-from .pgcollections import OrderedDict
+from collections import OrderedDict
 from . import units
 from .python2_3 import asUnicode, basestring
 from .Qt import QtCore
@@ -24,7 +24,7 @@ class ParseError(Exception):
     def __init__(self, message, lineNum, line, fileName=None):
         self.lineNum = lineNum
         self.line = line
-        #self.message = message
+        self.message = message
         self.fileName = fileName
         Exception.__init__(self, message)
         
@@ -39,10 +39,10 @@ class ParseError(Exception):
 
 def writeConfigFile(data, fname):
     s = genString(data)
-    fd = open(fname, 'w')
-    fd.write(s)
-    fd.close()
-    
+    with open(fname, 'w') as fd:
+        fd.write(s)
+
+
 def readConfigFile(fname):
     #cwd = os.getcwd()
     global GLOBAL_PATH
@@ -55,9 +55,8 @@ def readConfigFile(fname):
         
     try:
         #os.chdir(newDir)  ## bad.
-        fd = open(fname)
-        s = asUnicode(fd.read())
-        fd.close()
+        with open(fname) as fd:
+            s = asUnicode(fd.read())
         s = s.replace("\r\n", "\n")
         s = s.replace("\r", "\n")
         data = parseString(s)[1]
@@ -73,9 +72,8 @@ def readConfigFile(fname):
 
 def appendConfigFile(data, fname):
     s = genString(data)
-    fd = open(fname, 'a')
-    fd.write(s)
-    fd.close()
+    with open(fname, 'a') as fd:
+        fd.write(s)
 
 
 def genString(data, indent=''):
@@ -194,8 +192,6 @@ def measureIndent(s):
     
 if __name__ == '__main__':
     import tempfile
-    fn = tempfile.mktemp()
-    tf = open(fn, 'w')
     cf = """
 key: 'value'
 key2:              ##comment
@@ -205,8 +201,9 @@ key2:              ##comment
     key22: [1,2,3]
     key23: 234  #comment
     """
-    tf.write(cf)
-    tf.close()
+    fn = tempfile.mktemp()
+    with open(fn, 'w') as tf:
+        tf.write(cf)
     print("=== Test:===")
     num = 1
     for line in cf.split('\n'):

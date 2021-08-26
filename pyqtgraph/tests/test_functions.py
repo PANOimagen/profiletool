@@ -1,10 +1,15 @@
+# -*- coding: utf-8 -*-
 import pyqtgraph as pg
 import numpy as np
 import sys
+from copy import deepcopy
+from collections import OrderedDict
 from numpy.testing import assert_array_almost_equal, assert_almost_equal
 import pytest
 
+
 np.random.seed(12345)
+
 
 def testSolve3D():
     p1 = np.array([[0,0,0,1],
@@ -93,6 +98,19 @@ def check_interpolateArray(order):
 
     assert_array_almost_equal(r1, r2)
     
+def test_subArray():
+    a = np.array([0, 0, 111, 112, 113, 0, 121, 122, 123, 0, 0, 0, 211, 212, 213, 0, 221, 222, 223, 0, 0, 0, 0])
+    b = pg.subArray(a, offset=2, shape=(2,2,3), stride=(10,4,1))
+    c = np.array([[[111,112,113], [121,122,123]], [[211,212,213], [221,222,223]]])
+    assert np.all(b == c)
+    
+    # operate over first axis; broadcast over the rest
+    aa = np.vstack([a, a/100.]).T
+    cc = np.empty(c.shape + (2,))
+    cc[..., 0] = c
+    cc[..., 1] = c / 100.
+    bb = pg.subArray(aa, offset=2, shape=(2,2,3), stride=(10,4,1))
+    assert np.all(bb == cc)
     
 def test_subArray():
     a = np.array([0, 0, 111, 112, 113, 0, 121, 122, 123, 0, 0, 0, 211, 212, 213, 0, 221, 222, 223, 0, 0, 0, 0])
@@ -127,6 +145,17 @@ def test_rescaleData():
                     assert np.all(s1 == s2)
                 else:
                     assert np.allclose(s1, s2)
+
+
+def makeARGB(*args, **kwds):
+    img, alpha = pg.makeARGB(*args, **kwds)
+    if kwds.get('useRGBA'):         # endian independent
+        out = img
+    elif sys.byteorder == 'little': # little-endian ARGB32 to B,G,R,A
+        out = img
+    else:                           # big-endian ARGB32 to B,G,R,A
+        out = img[..., [3, 2, 1, 0]]
+    return out, alpha
 
 
 def test_makeARGB():
@@ -175,55 +204,55 @@ def test_makeARGB():
     # uint8 data tests
     
     im1 = np.arange(256).astype('ubyte').reshape(256, 1)
-    im2, alpha = pg.makeARGB(im1, levels=(0, 255))
+    im2, alpha = makeARGB(im1, levels=(0, 255))
     checkImage(im2, im1, alpha, False)
     
-    im3, alpha = pg.makeARGB(im1, levels=(0.0, 255.0))
+    im3, alpha = makeARGB(im1, levels=(0.0, 255.0))
     checkImage(im3, im1, alpha, False)
 
-    im4, alpha = pg.makeARGB(im1, levels=(255, 0))
+    im4, alpha = makeARGB(im1, levels=(255, 0))
     checkImage(im4, 255-im1, alpha, False)
     
-    im5, alpha = pg.makeARGB(np.concatenate([im1]*3, axis=1), levels=[(0, 255), (0.0, 255.0), (255, 0)])
+    im5, alpha = makeARGB(np.concatenate([im1]*3, axis=1), levels=[(0, 255), (0.0, 255.0), (255, 0)])
     checkImage(im5, np.concatenate([im1, im1, 255-im1], axis=1), alpha, False)
     
 
-    im2, alpha = pg.makeARGB(im1, levels=(128,383))
+    im2, alpha = makeARGB(im1, levels=(128,383))
     checkImage(im2[:128], 0, alpha, False)
     checkImage(im2[128:], im1[:128], alpha, False)
     
 
     # uint8 data + uint8 LUT
     lut = np.arange(256)[::-1].astype(np.uint8)
-    im2, alpha = pg.makeARGB(im1, lut=lut)
+    im2, alpha = makeARGB(im1, lut=lut)
     checkImage(im2, lut, alpha, False)
     
     # lut larger than maxint
     lut = np.arange(511).astype(np.uint8)
-    im2, alpha = pg.makeARGB(im1, lut=lut)
+    im2, alpha = makeARGB(im1, lut=lut)
     checkImage(im2, lut[::2], alpha, False)
     
     # lut smaller than maxint
     lut = np.arange(128).astype(np.uint8)
-    im2, alpha = pg.makeARGB(im1, lut=lut)
-    checkImage(im2, np.linspace(0, 127, 256).astype('ubyte'), alpha, False)
+    im2, alpha = makeARGB(im1, lut=lut)
+    checkImage(im2, np.linspace(0, 127.5, 256, dtype='ubyte'), alpha, False)
 
     # lut + levels
     lut = np.arange(256)[::-1].astype(np.uint8)
-    im2, alpha = pg.makeARGB(im1, lut=lut, levels=[-128, 384])
-    checkImage(im2, np.linspace(192, 65.5, 256).astype('ubyte'), alpha, False)
+    im2, alpha = makeARGB(im1, lut=lut, levels=[-128, 384])
+    checkImage(im2, np.linspace(191.5, 64.5, 256, dtype='ubyte'), alpha, False)
     
-    im2, alpha = pg.makeARGB(im1, lut=lut, levels=[64, 192])
-    checkImage(im2, np.clip(np.linspace(385.5, -126.5, 256), 0, 255).astype('ubyte'), alpha, False)
+    im2, alpha = makeARGB(im1, lut=lut, levels=[64, 192])
+    checkImage(im2, np.clip(np.linspace(384.5, -127.5, 256), 0, 255).astype('ubyte'), alpha, False)
 
     # uint8 data + uint16 LUT
     lut = np.arange(4096)[::-1].astype(np.uint16) // 16
-    im2, alpha = pg.makeARGB(im1, lut=lut)
+    im2, alpha = makeARGB(im1, lut=lut)
     checkImage(im2, np.arange(256)[::-1].astype('ubyte'), alpha, False)
 
     # uint8 data + float LUT
     lut = np.linspace(10., 137., 256)
-    im2, alpha = pg.makeARGB(im1, lut=lut)
+    im2, alpha = makeARGB(im1, lut=lut)
     checkImage(im2, lut.astype('ubyte'), alpha, False)
 
     # uint8 data + 2D LUT
@@ -231,41 +260,65 @@ def test_makeARGB():
     lut[:,0] = np.arange(256)
     lut[:,1] = np.arange(256)[::-1]
     lut[:,2] = 7
-    im2, alpha = pg.makeARGB(im1, lut=lut)
+    im2, alpha = makeARGB(im1, lut=lut)
     checkImage(im2, lut[:,None,::-1], alpha, False)
     
     # check useRGBA
-    im2, alpha = pg.makeARGB(im1, lut=lut, useRGBA=True)
+    im2, alpha = makeARGB(im1, lut=lut, useRGBA=True)
     checkImage(im2, lut[:,None,:], alpha, False)
 
     
     # uint16 data tests
     im1 = np.arange(0, 2**16, 256).astype('uint16')[:, None]
-    im2, alpha = pg.makeARGB(im1, levels=(512, 2**16))
+    im2, alpha = makeARGB(im1, levels=(512, 2**16))
     checkImage(im2, np.clip(np.linspace(-2, 253, 256), 0, 255).astype('ubyte'), alpha, False)
 
     lut = (np.arange(512, 2**16)[::-1] // 256).astype('ubyte')
-    im2, alpha = pg.makeARGB(im1, lut=lut, levels=(512, 2**16-256))
+    im2, alpha = makeARGB(im1, lut=lut, levels=(512, 2**16-256))
     checkImage(im2, np.clip(np.linspace(257, 2, 256), 0, 255).astype('ubyte'), alpha, False)
 
     lut = np.zeros(2**16, dtype='ubyte')
     lut[1000:1256] = np.arange(256)
     lut[1256:] = 255
     im1 = np.arange(1000, 1256).astype('uint16')[:, None]
-    im2, alpha = pg.makeARGB(im1, lut=lut)
+    im2, alpha = makeARGB(im1, lut=lut)
     checkImage(im2, np.arange(256).astype('ubyte'), alpha, False)
     
     
     
     # float data tests
     im1 = np.linspace(1.0, 17.0, 256)[:, None]
-    im2, alpha = pg.makeARGB(im1, levels=(5.0, 13.0))
+    im2, alpha = makeARGB(im1, levels=(5.0, 13.0))
     checkImage(im2, np.clip(np.linspace(-128, 383, 256), 0, 255).astype('ubyte'), alpha, False)
     
     lut = (np.arange(1280)[::-1] // 10).astype('ubyte')
-    im2, alpha = pg.makeARGB(im1, lut=lut, levels=(1, 17))
+    im2, alpha = makeARGB(im1, lut=lut, levels=(1, 17))
     checkImage(im2, np.linspace(127.5, 0, 256).astype('ubyte'), alpha, False)
 
+    # nans in image
+
+    # 2d input image, one pixel is nan
+    im1 = np.ones((10, 12))
+    im1[3, 5] = np.nan
+    im2, alpha = makeARGB(im1, levels=(0, 1))
+    assert alpha
+    assert im2[3, 5, 3] == 0    # nan pixel is transparent
+    assert im2[0, 0, 3] == 255  # doesn't affect other pixels
+
+    # 3d RGB input image, any color channel of a pixel is nan
+    im1 = np.ones((10, 12, 3))
+    im1[3, 5, 1] = np.nan
+    im2, alpha = makeARGB(im1, levels=(0, 1))
+    assert alpha
+    assert im2[3, 5, 3] == 0    # nan pixel is transparent
+    assert im2[0, 0, 3] == 255  # doesn't affect other pixels
+
+    # 3d RGBA input image, any color channel of a pixel is nan
+    im1 = np.ones((10, 12, 4))
+    im1[3, 5, 1] = np.nan
+    im2, alpha = makeARGB(im1, levels=(0, 1), useRGBA=True)
+    assert alpha
+    assert im2[3, 5, 3] == 0    # nan pixel is transparent
 
     # test sanity checks
     class AssertExc(object):
@@ -298,9 +351,7 @@ def test_makeARGB():
 def test_eq():
     eq = pg.functions.eq
     
-    zeros = [0, 0.0, np.float(0), np.int(0)]
-    if sys.version[0] < '3':
-        zeros.append(long(0))
+    zeros = [0, 0.0, np.float64(0), np.float32(0), np.int32(0), np.int64(0)]
     for i,x in enumerate(zeros):
         for y in zeros[i:]:
             assert eq(x, y)
@@ -356,6 +407,55 @@ def test_eq():
     assert eq(a4, a4.copy())
     assert not eq(a4, a4.T)
 
+    # test containers
+
+    assert not eq({'a': 1}, {'a': 1, 'b': 2})
+    assert not eq({'a': 1}, {'a': 2})
+    d1 = {'x': 1, 'y': np.nan, 3: ['a', np.nan, a3, 7, 2.3], 4: a4}
+    d2 = deepcopy(d1)
+    assert eq(d1, d2)
+    d1_ordered = OrderedDict(d1)
+    d2_ordered = deepcopy(d1_ordered)
+    assert eq(d1_ordered, d2_ordered)
+    assert not eq(d1_ordered, d2)
+    items = list(d1.items())
+    assert not eq(OrderedDict(items), OrderedDict(reversed(items)))
     
-if __name__ == '__main__':
-    test_interpolateArray()
+    assert not eq([1,2,3], [1,2,3,4])
+    l1 = [d1, np.inf, -np.inf, np.nan]
+    l2 = deepcopy(l1)
+    t1 = tuple(l1)
+    t2 = tuple(l2)
+    assert eq(l1, l2)
+    assert eq(t1, t2)
+
+    assert eq(set(range(10)), set(range(10)))
+    assert not eq(set(range(10)), set(range(9)))
+
+
+@pytest.mark.parametrize("s,suffix,expected", [
+    # usual cases
+    ("100 uV", "V", ("100", "u", "V")),
+    ("100 µV", "V", ("100", "µ", "V")),
+    ("4.2 nV", None, ("4.2", "n", "V")),
+    ("1.2 m", "m", ("1.2", "", "m")),
+    ("1.2 m", None, ("1.2", "", "m")),
+    ("5.0e9", None, ("5.0e9", "", "")),
+    ("2 units", "units", ("2", "", "units")),
+    # siPrefix with explicit empty suffix
+    ("1.2 m", "", ("1.2", "m", "")),
+    ("5.0e-9 M", "", ("5.0e-9", "M", "")),
+    # weirder cases that should return the reasonable thing
+    ("4.2 nV", "nV", ("4.2", "", "nV")),
+    ("4.2 nV", "", ("4.2", "n", "")),
+    ("1.2 j", "", ("1.2", "", "")),
+    ("1.2 j", None, ("1.2", "", "j")),
+    # expected error cases
+    ("100 uV", "v", ValueError),
+])
+def test_siParse(s, suffix, expected):
+    if isinstance(expected, tuple):
+        assert pg.siParse(s, suffix=suffix) == expected
+    else:
+        with pytest.raises(expected):
+            pg.siParse(s, suffix=suffix)

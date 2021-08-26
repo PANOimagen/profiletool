@@ -1,10 +1,8 @@
-from ..Qt import QtGui, QtCore
-try:
-    from ..Qt import QtOpenGL
-    HAVE_OPENGL = True
-except:
-    HAVE_OPENGL = False
+# -*- coding: utf-8 -*-
+from ..Qt import QtCore, QtGui, QtWidgets
+HAVE_OPENGL = hasattr(QtWidgets, 'QOpenGLWidget')
 
+import warnings
 import numpy as np
 from .GraphicsObject import GraphicsObject
 from .. import functions as fn
@@ -15,8 +13,6 @@ from .. import debug
 
 __all__ = ['PlotCurveItem']
 class PlotCurveItem(GraphicsObject):
-
-
     """
     Class representing a single plot curve. Instances of this class are created
     automatically as part of PlotDataItem; these rarely need to be instantiated
@@ -28,15 +24,15 @@ class PlotCurveItem(GraphicsObject):
     - Fill under curve
     - Mouse interaction
 
-    ====================  ===============================================
+    =====================  ===============================================
     **Signals:**
-    sigPlotChanged(self)  Emitted when the data being plotted has changed
-    sigClicked(self)      Emitted when the curve is clicked
-    ====================  ===============================================
+    sigPlotChanged(self)   Emitted when the data being plotted has changed
+    sigClicked(self, ev)   Emitted when the curve is clicked
+    =====================  ===============================================
     """
 
     sigPlotChanged = QtCore.Signal(object)
-    sigClicked = QtCore.Signal(object)
+    sigClicked = QtCore.Signal(object, object)
 
     def __init__(self, *args, **kargs):
         """
@@ -61,8 +57,9 @@ class PlotCurveItem(GraphicsObject):
         self.opts = {
             'shadowPen': None,
             'fillLevel': None,
+            'fillOutline': False,
             'brush': None,
-            'stepMode': False,
+            'stepMode': None,
             'name': None,
             'antialias': getConfigOption('antialias'),
             'connect': 'all',
@@ -148,7 +145,10 @@ class PlotCurveItem(GraphicsObject):
         if frac >= 1.0:
             # include complete data range
             # first try faster nanmin/max function, then cut out infs if needed.
-            b = (np.nanmin(d), np.nanmax(d))
+            with warnings.catch_warnings(): 
+                # All-NaN data is acceptable; Explicit numpy warning is not needed.
+                warnings.simplefilter("ignore")
+                b = (np.nanmin(d), np.nanmax(d))
             if any(np.isinf(b)):
                 mask = np.isfinite(d)
                 d = d[mask]
@@ -162,10 +162,12 @@ class PlotCurveItem(GraphicsObject):
             # include a percentile of data range
             mask = np.isfinite(d)
             d = d[mask]
+            if len(d) == 0:
+                return (None, None)
             b = np.percentile(d, [50 * (1 - frac), 50 * (1 + frac)])
 
         ## adjust for fill level
-        if ax == 1 and self.opts['fillLevel'] is not None:
+        if ax == 1 and self.opts['fillLevel'] not in [None, 'enclosed']:
             b = (min(b[0], self.opts['fillLevel']), max(b[1], self.opts['fillLevel']))
 
         ## Add pen width only if it is non-cosmetic.
@@ -194,8 +196,10 @@ class PlotCurveItem(GraphicsObject):
     def boundingRect(self):
         if self._boundingRect is None:
             (xmn, xmx) = self.dataBounds(ax=0)
+            if xmn is None or xmx is None:
+                return QtCore.QRectF()
             (ymn, ymx) = self.dataBounds(ax=1)
-            if xmn is None or ymn is None:
+            if ymn is None or ymx is None:
                 return QtCore.QRectF()
 
             px = py = 0.0
@@ -271,7 +275,7 @@ class PlotCurveItem(GraphicsObject):
         self.update()
 
     def setShadowPen(self, *args, **kargs):
-        """Set the shadow pen used to draw behind tyhe primary pen.
+        """Set the shadow pen used to draw behind the primary pen.
         This pen must have a larger width than the primary
         pen to be visible.
         """
@@ -305,13 +309,23 @@ class PlotCurveItem(GraphicsObject):
                         :func:`mkPen <pyqtgraph.mkPen>` is allowed.
         fillLevel       (float or None) Fill the area 'under' the curve to
                         *fillLevel*
+        fillOutline     (bool) If True, an outline surrounding the *fillLevel*
+                        area is drawn.
         brush           QBrush to use when filling. Any single argument accepted
                         by :func:`mkBrush <pyqtgraph.mkBrush>` is allowed.
         antialias       (bool) Whether to use antialiasing when drawing. This
                         is disabled by default because it decreases performance.
-        stepMode        If True, two orthogonal lines are drawn for each sample
-                        as steps. This is commonly used when drawing histograms.
-                        Note that in this case, len(x) == len(y) + 1
+        stepMode        (str or None) If "center", a step is drawn using the x
+                        values as boundaries and the given y values are
+                        associated to the mid-points between the boundaries of
+                        each step. This is commonly used when drawing
+                        histograms. Note that in this case, len(x) == len(y) + 1
+                        If "left" or "right", the step is drawn assuming that
+                        the y value is associated to the left or right boundary,
+                        respectively. In this case len(x) == len(y)
+                        If not passed or an empty string or None is passed, the
+                        step mode is not enabled.
+                        Passing True is a deprecated equivalent to "center".
         connect         Argument specifying how vertexes should be connected
                         by line segments. Default is "all", indicating full
                         connection. "pairs" causes only even-numbered segments
@@ -354,25 +368,29 @@ class PlotCurveItem(GraphicsObject):
                 kargs[k] = data
             if not isinstance(data, np.ndarray) or data.ndim > 1:
                 raise Exception("Plot data must be 1D ndarray.")
-            if 'complex' in str(data.dtype):
+            if data.dtype.kind == 'c':
                 raise Exception("Can not plot complex data types.")
 
         profiler("data checks")
 
         #self.setCacheMode(QtGui.QGraphicsItem.NoCache)  ## Disabling and re-enabling the cache works around a bug in Qt 4.6 causing the cached results to display incorrectly
                                                         ##    Test this bug with test_PlotWidget and zoom in on the animated plot
+        self.yData = kargs['y'].view(np.ndarray)
+        self.xData = kargs['x'].view(np.ndarray)
+        
         self.invalidateBounds()
         self.prepareGeometryChange()
         self.informViewBoundsChanged()
-        self.yData = kargs['y'].view(np.ndarray)
-        self.xData = kargs['x'].view(np.ndarray)
 
         profiler('copy')
 
         if 'stepMode' in kargs:
             self.opts['stepMode'] = kargs['stepMode']
 
-        if self.opts['stepMode'] is True:
+        if self.opts['stepMode'] in ("center", True):  ## check against True for backwards compatibility
+            if self.opts['stepMode'] is True:
+                import warnings
+                warnings.warn('stepMode=True is deprecated, use stepMode="center" instead', DeprecationWarning, stacklevel=3)
             if len(self.xData) != len(self.yData)+1:  ## allow difference of 1 for step mode plots
                 raise Exception("len(X) must be len(Y)+1 since stepMode=True (got %s and %s)" % (self.xData.shape, self.yData.shape))
         else:
@@ -390,15 +408,16 @@ class PlotCurveItem(GraphicsObject):
             self.opts['connect'] = kargs['connect']
         if 'pen' in kargs:
             self.setPen(kargs['pen'])
-        if 'shadowPen' in kargs:
+        if 'shadowPen' in kargs and kargs['shadowPen'] is not None:
             self.setShadowPen(kargs['shadowPen'])
-        if 'fillLevel' in kargs:
+        if 'fillLevel' in kargs and kargs['fillLevel'] is not None:
             self.setFillLevel(kargs['fillLevel'])
-        if 'brush' in kargs:
+        if 'fillOutline' in kargs:
+            self.opts['fillOutline'] = kargs['fillOutline']
+        if 'brush' in kargs and kargs['brush'] is not None:
             self.setBrush(kargs['brush'])
         if 'antialias' in kargs:
             self.opts['antialias'] = kargs['antialias']
-
 
         profiler('set')
         self.update()
@@ -407,10 +426,22 @@ class PlotCurveItem(GraphicsObject):
         profiler('emit')
 
     def generatePath(self, x, y):
-        if self.opts['stepMode']:
+        stepMode = self.opts['stepMode']
+        if stepMode:
             ## each value in the x/y arrays generates 2 points.
-            x2 = np.empty((len(x),2), dtype=x.dtype)
-            x2[:] = x[:,np.newaxis]
+            if stepMode == "right":
+                x2 = np.empty((len(x) + 1, 2), dtype=x.dtype)
+                x2[:-1] = x[:, np.newaxis]
+                x2[-1] = x2[-2]
+            elif stepMode == "left":
+                x2 = np.empty((len(x) + 1, 2), dtype=x.dtype)
+                x2[1:] = x[:, np.newaxis]
+                x2[0] = x2[1]
+            elif stepMode in ("center", True):  ## support True for back-compat
+                x2 = np.empty((len(x),2), dtype=x.dtype)
+                x2[:] = x[:, np.newaxis]
+            else:
+                raise ValueError("Unsupported stepMode %s" % stepMode)
             if self.opts['fillLevel'] is None:
                 x = x2.reshape(x2.size)[1:-1]
                 y2 = np.empty((len(y),2), dtype=y.dtype)
@@ -448,9 +479,10 @@ class PlotCurveItem(GraphicsObject):
         if self.xData is None or len(self.xData) == 0:
             return
 
-        if HAVE_OPENGL and getConfigOption('enableExperimental') and isinstance(widget, QtOpenGL.QGLWidget):
-            self.paintGL(p, opt, widget)
-            return
+        if getConfigOption('enableExperimental'):
+            if HAVE_OPENGL and isinstance(widget, QtWidgets.QOpenGLWidget):
+                self.paintGL(p, opt, widget)
+                return
 
         x = None
         y = None
@@ -473,9 +505,10 @@ class PlotCurveItem(GraphicsObject):
                 if x is None:
                     x,y = self.getData()
                 p2 = QtGui.QPainterPath(self.path)
-                p2.lineTo(x[-1], self.opts['fillLevel'])
-                p2.lineTo(x[0], self.opts['fillLevel'])
-                p2.lineTo(x[0], y[0])
+                if self.opts['fillLevel'] != 'enclosed':
+                    p2.lineTo(x[-1], self.opts['fillLevel'])
+                    p2.lineTo(x[0], self.opts['fillLevel'])
+                    p2.lineTo(x[0], y[0])
                 p2.closeSubpath()
                 self.fillPath = p2
 
@@ -483,33 +516,28 @@ class PlotCurveItem(GraphicsObject):
             p.fillPath(self.fillPath, self.opts['brush'])
             profiler('draw fill path')
 
-        sp = self.opts['shadowPen']
-        cp = self.opts['pen']
+        # Avoid constructing a shadow pen if it's not used.
+        if self.opts.get('shadowPen') is not None:
+            if isinstance(self.opts.get('shadowPen'), QtGui.QPen):
+                sp = self.opts['shadowPen']
+            else:
+                sp = fn.mkPen(self.opts['shadowPen'])
 
-        ## Copy pens and apply alpha adjustment
-        #sp = QtGui.QPen(self.opts['shadowPen'])
-        #cp = QtGui.QPen(self.opts['pen'])
-        #for pen in [sp, cp]:
-            #if pen is None:
-                #continue
-            #c = pen.color()
-            #c.setAlpha(c.alpha() * self.opts['alphaHint'])
-            #pen.setColor(c)
-            ##pen.setCosmetic(True)
+            if sp.style() != QtCore.Qt.NoPen:
+                p.setPen(sp)
+                p.drawPath(path)
 
-        if sp is not None and sp.style() != QtCore.Qt.NoPen:
-            p.setPen(sp)
-            p.drawPath(path)
+        if isinstance(self.opts.get('pen'), QtGui.QPen):
+            cp = self.opts['pen']
+        else:
+            cp = fn.mkPen(self.opts['pen'])
+
         p.setPen(cp)
-        if self.fillPath is not None:
+        if self.opts['fillOutline'] and self.fillPath is not None:
             p.drawPath(self.fillPath)
         else:
             p.drawPath(path)
         profiler('drawPath')
-
-        #print "Render hints:", int(p.renderHints())
-        #p.setPen(QtGui.QPen(QtGui.QColor(255,0,0)))
-        #p.drawRect(self.boundingRect())
 
     def paintGL(self, p, opt, widget):
         p.beginNativePainting()
@@ -561,11 +589,12 @@ class PlotCurveItem(GraphicsObject):
                 if pen.isCosmetic() and width < 1:
                     width = 1
                 gl.glPointSize(width)
+                gl.glLineWidth(width)
                 gl.glEnable(gl.GL_LINE_SMOOTH)
                 gl.glEnable(gl.GL_BLEND)
                 gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
                 gl.glHint(gl.GL_LINE_SMOOTH_HINT, gl.GL_NICEST)
-                gl.glDrawArrays(gl.GL_LINE_STRIP, 0, pos.size / pos.shape[-1])
+                gl.glDrawArrays(gl.GL_LINE_STRIP, 0, int(pos.size / pos.shape[-1]))
             finally:
                 gl.glDisableClientState(gl.GL_VERTEX_ARRAY)
         finally:
@@ -605,7 +634,7 @@ class PlotCurveItem(GraphicsObject):
             return
         if self.mouseShape().contains(ev.pos()):
             ev.accept()
-            self.sigClicked.emit(self)
+            self.sigClicked.emit(self, ev)
 
 
 
@@ -633,4 +662,3 @@ class ROIPlotItem(PlotCurveItem):
     def roiChangedEvent(self):
         d = self.getRoiData()
         self.updateData(d, self.xVals)
-

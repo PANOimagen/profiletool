@@ -134,6 +134,9 @@ class GraphicsLayout(GraphicsWidget):
         item.geometryChanged.connect(self._updateItemBorder)
 
         self.layout.addItem(item, row, col, rowspan, colspan)
+        self.layout.activate() # Update layout, recalculating bounds.
+                               # Allows some PyQtGraph features to also work without Qt event loop.
+        
         self.nextColumn()
 
     def getItem(self, row, col):
@@ -167,6 +170,8 @@ class GraphicsLayout(GraphicsWidget):
     def clear(self):
         for i in list(self.items.keys()):
             self.removeItem(i)
+        self.currentRow = 0
+        self.currentCol = 0
 
     def setContentsMargins(self, *args):
         # Wrap calls to layout. This should happen automatically, but there

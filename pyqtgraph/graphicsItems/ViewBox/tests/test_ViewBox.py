@@ -17,7 +17,7 @@ def init_viewbox():
     """
     global win, vb
     
-    win = pg.GraphicsWindow()
+    win = pg.GraphicsLayoutWidget()
     win.ci.layout.setContentsMargins(0,0,0,0)
     win.resize(200, 200)
     win.show()
@@ -27,7 +27,7 @@ def init_viewbox():
     vb.setRange(xRange=[0, 10], yRange=[0, 10], padding=0)
     
     # required to make mapFromView work properly.
-    qtest.qWaitForWindowShown(win)
+    qtest.qWaitForWindowExposed(win)
     
     g = pg.GridItem()
     vb.addItem(g)
@@ -70,6 +70,17 @@ def test_ViewBox():
     view1 = QRectF(0, -5, 10, 20)
     size1 = QRectF(0, h, w, -h)
     assertMapping(vb, view1, size1)
+
+    win.close()
+
+
+def test_ViewBox_setMenuEnabled():
+    init_viewbox()
+    vb.setMenuEnabled(True)
+    assert vb.menu is not None
+    vb.setMenuEnabled(False)
+    assert vb.menu is None
+
 
 
 skipreason = "Skipping this test until someone has time to fix it."
