@@ -39,7 +39,7 @@ class LabelItem(GraphicsWidget, GraphicsWidgetAnchor):
 
         ==================== ==============================
         **Style Arguments:**
-        color                (str) example: 'CCFF00'
+        color                (str) example: '#CCFF00'
         size                 (str) example: '8pt'
         bold                 (bool)
         italic               (bool)
@@ -109,7 +109,7 @@ class LabelItem(GraphicsWidget, GraphicsWidgetAnchor):
     def setAngle(self, angle):
         self.angle = angle
         self.item.resetTransform()
-        self.item.rotate(angle)
+        self.item.setRotation(angle)
         self.updateMin()
         
         

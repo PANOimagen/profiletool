@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-#-----------------------------------------------------------
+# -----------------------------------------------------------
 #
 # Profile
 # Copyright (C) 2008  Borys Jurgiel
 # Copyright (C) 2012  Patrice Verchere
-#-----------------------------------------------------------
+# -----------------------------------------------------------
 #
 # licensed under the terms of GNU GPL 2
 #
@@ -22,15 +22,14 @@
 # with this progsram; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
-#---------------------------------------------------------------------
+# ---------------------------------------------------------------------
 
-from qgis.PyQt.QtCore import *
-from qgis.PyQt.QtGui import *
+import qgis
 from qgis.core import *
 from qgis.gui import *
+from qgis.PyQt.QtCore import *
+from qgis.PyQt.QtGui import *
 from qgis.utils import *
-import qgis
-
 
 try:
     from qgis.PyQt.QtWidgets import *
@@ -41,22 +40,23 @@ except:
 from . import resources
 from .tools.profiletool_core import ProfileToolCore
 
-class ProfilePlugin:
 
+class ProfilePlugin:
     def __init__(self, iface):
         self.iface = iface
         self.canvas = iface.mapCanvas()
         self.profiletool = None
-        self.dockOpened = False        #remember for not reopening dock if there's already one opened
-        #self.wdg = None
-        #self.tool = None
-        #self.lastFreeHandPoints = []
+        self.dockOpened = False  # remember for not reopening dock if there's already one opened
+        # self.wdg = None
+        # self.tool = None
+        # self.lastFreeHandPoints = []
         self.canvas.mapToolSet.connect(self.mapToolChanged)
-
 
     def initGui(self):
         # create action
-        self.action = QAction(QIcon(":/plugins/profiletool/icons/profileIcon.png"), "Terrain profile", self.iface.mainWindow())
+        self.action = QAction(
+            QIcon(":/plugins/profiletool/icons/profileIcon.png"), "Terrain profile", self.iface.mainWindow()
+        )
         self.action.setWhatsThis("Plots terrain profiles")
         self.action.triggered.connect(self.run)
         self.aboutAction = QAction("About", self.iface.mainWindow())
@@ -65,8 +65,6 @@ class ProfilePlugin:
         self.iface.addToolBarIcon(self.action)
         self.iface.addPluginToMenu("&Profile Tool", self.action)
         self.iface.addPluginToMenu("&Profile Tool", self.aboutAction)
-
-
 
     def unload(self):
         try:
@@ -83,12 +81,11 @@ class ProfilePlugin:
         self.iface.removePluginMenu("&Profile Tool", self.action)
         self.iface.removePluginMenu("&Profile Tool", self.aboutAction)
 
-
     def run(self):
 
         if not self.dockOpened:
-            #if self.profiletool is None:
-            self.profiletool = ProfileToolCore(self.iface,self)
+            # if self.profiletool is None:
+            self.profiletool = ProfileToolCore(self.iface, self)
             self.iface.addDockWidget(self.profiletool.dockwidget.location, self.profiletool.dockwidget)
             self.profiletool.dockwidget.closed.connect(self.cleaning)
             self.dockOpened = True
@@ -96,19 +93,19 @@ class ProfilePlugin:
         else:
             self.profiletool.activateProfileMapTool()
 
-
     def cleaning(self):
         self.dockOpened = False
         self.profiletool.cleaning()
         if self.profiletool.toolrenderer:
             self.canvas.unsetMapTool(self.profiletool.toolrenderer.tool)
         self.canvas.setMapTool(self.profiletool.saveTool)
-        self.iface.mainWindow().statusBar().showMessage( "" )
+        self.iface.mainWindow().statusBar().showMessage("")
 
-    def mapToolChanged(self,newtool,oldtool = None):
+    def mapToolChanged(self, newtool, oldtool=None):
         pass
-        #print('maptoolchanged',newtool,oldtool)
+        # print('maptoolchanged',newtool,oldtool)
 
     def about(self):
         from .ui.dlgabout import DlgAbout
+
         DlgAbout(self.iface.mainWindow()).exec_()

@@ -1,23 +1,13 @@
 # -*- coding: utf-8 -*-
 from ..Qt import QtCore, QtGui, QT_LIB
 from .Node import *
-from ..pgcollections import OrderedDict
+from collections import OrderedDict
 from ..widgets.TreeWidget import *
 from .. import FileDialog, DataTreeWidget
 
-## pyside and pyqt use incompatible ui files.
-if QT_LIB == 'PySide':
-    from . import FlowchartTemplate_pyside as FlowchartTemplate
-    from . import FlowchartCtrlTemplate_pyside as FlowchartCtrlTemplate
-elif QT_LIB == 'PySide2':
-    from . import FlowchartTemplate_pyside2 as FlowchartTemplate
-    from . import FlowchartCtrlTemplate_pyside2 as FlowchartCtrlTemplate
-elif QT_LIB == 'PyQt5':
-    from . import FlowchartTemplate_pyqt5 as FlowchartTemplate
-    from . import FlowchartCtrlTemplate_pyqt5 as FlowchartCtrlTemplate
-else:
-    from . import FlowchartTemplate_pyqt as FlowchartTemplate
-    from . import FlowchartCtrlTemplate_pyqt as FlowchartCtrlTemplate
+import importlib
+FlowchartCtrlTemplate = importlib.import_module(
+    f'.FlowchartCtrlTemplate_{QT_LIB.lower()}', package=__package__)
     
 from .Terminal import Terminal
 from numpy import ndarray
@@ -214,9 +204,11 @@ class Flowchart(Node):
     def nodeClosed(self, node):
         del self._nodes[node.name()]
         self.widget().removeNode(node)
-        for signal in ['sigClosed', 'sigRenamed', 'sigOutputChanged']:
+        for signal, slot in [('sigClosed', self.nodeClosed),
+                             ('sigRenamed', self.nodeRenamed),
+                             ('sigOutputChanged', self.nodeOutputChanged)]:
             try:
-                getattr(node, signal).disconnect(self.nodeClosed)
+                getattr(node, signal).disconnect(slot)
             except (TypeError, RuntimeError):
                 pass
         self.sigChartChanged.emit(self, 'remove', node)
@@ -508,7 +500,7 @@ class Flowchart(Node):
         self.sigStateChanged.emit()
             
     def loadFile(self, fileName=None, startDir=None):
-        """Load a flowchart (*.fc) file.
+        """Load a flowchart (``*.fc``) file.
         """
         if fileName is None:
             if startDir is None:
@@ -624,10 +616,7 @@ class FlowchartCtrlWidget(QtGui.QWidget):
         self.cwWin.resize(1000,800)
         
         h = self.ui.ctrlList.header()
-        if QT_LIB in ['PyQt4', 'PySide']:
-            h.setResizeMode(0, h.Stretch)
-        else:
-            h.setSectionResizeMode(0, h.Stretch)
+        h.setSectionResizeMode(0, h.ResizeMode.Stretch)
         
         self.ui.ctrlList.itemChanged.connect(self.itemChanged)
         self.ui.loadBtn.clicked.connect(self.loadClicked)
@@ -763,6 +752,9 @@ class FlowchartCtrlWidget(QtGui.QWidget):
         item = self.items[node]
         self.ui.ctrlList.setCurrentItem(item)
 
+    def clearSelection(self):
+        self.ui.ctrlList.selectionModel().clearSelection()
+
 
 class FlowchartWidget(dockarea.DockArea):
     """Includes the actual graphical flowchart and debugging interface"""
@@ -834,9 +826,9 @@ class FlowchartWidget(dockarea.DockArea):
     def buildMenu(self, pos=None):
         def buildSubMenu(node, rootMenu, subMenus, pos=None):
             for section, node in node.items():
-                menu = QtGui.QMenu(section)
-                rootMenu.addMenu(menu)
-                if isinstance(node, OrderedDict): 
+                if isinstance(node, OrderedDict):
+                    menu = QtGui.QMenu(section)
+                    rootMenu.addMenu(menu)
                     buildSubMenu(node, menu, subMenus, pos=pos)
                     subMenus.append(menu)
                 else:
@@ -890,7 +882,10 @@ class FlowchartWidget(dockarea.DockArea):
             item = items[0]
             if hasattr(item, 'node') and isinstance(item.node, Node):
                 n = item.node
-                self.ctrl.select(n)
+                if n in self.ctrl.items:
+                    self.ctrl.select(n)
+                else:
+                    self.ctrl.clearSelection()
                 data = {'outputs': n.outputValues(), 'inputs': n.inputValues()}
                 self.selNameLabel.setText(n.name())
                 if hasattr(n, 'nodeName'):
@@ -938,4 +933,3 @@ class FlowchartWidget(dockarea.DockArea):
         
 class FlowchartNode(Node):
     pass
-

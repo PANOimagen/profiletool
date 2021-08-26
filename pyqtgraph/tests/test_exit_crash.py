@@ -1,9 +1,9 @@
+# -*- coding: utf-8 -*-
 import os
 import sys
 import subprocess
 import tempfile
 import pyqtgraph as pg
-import six
 import pytest
 import textwrap
 import time
@@ -59,13 +59,14 @@ def test_exit_crash():
 
         print(name)
         argstr = initArgs.get(name, "")
-        open(tmp, 'w').write(code.format(path=path, classname=name, args=argstr))
+        with open(tmp, 'w') as f:
+            f.write(code.format(path=path, classname=name, args=argstr))
         proc = subprocess.Popen([sys.executable, tmp])
         assert proc.wait() == 0
 
     os.remove(tmp)
 
-
+@pytest.mark.skipif(pg.Qt.QtVersion.startswith("5.9"), reason="Functionality not well supported, failing only on this config")
 def test_pg_exit():
     # test the pg.exit() function
     code = textwrap.dedent("""
