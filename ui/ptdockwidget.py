@@ -117,9 +117,12 @@ class PTDockWidget(QDockWidget, FormClass):
         self.fullResolutionCheckBox.stateChanged.connect(self.refreshPlot)
         self.profileInterpolationCheckBox.stateChanged.connect(self.refreshPlot)
 
-    # ********************************************************************************
-    # init things ****************************************************************
-    # ********************************************************************************
+        self.cbSameAxisScale.stateChanged.connect(self._onSameAxisScaleStateChanged)
+
+    #********************************************************************************
+    #init things ****************************************************************
+    #********************************************************************************
+
 
     def addOptionComboboxItems(self):
         self.cboLibrary.addItem("PyQtGraph")
@@ -145,17 +148,22 @@ class PTDockWidget(QDockWidget, FormClass):
             self.checkBox_mpl_tracking.setCheckState(2)
             self.profiletoolcore.activateMouseTracking(2)
             self.checkBox_mpl_tracking.stateChanged.connect(self.profiletoolcore.activateMouseTracking)
+            self._onSameAxisScaleStateChanged(self.cbSameAxisScale.checkState())
 
-        elif self.plotlibrary == "Matplotlib":
+        elif self.plotlibrary == 'Matplotlib':
             self.checkBox_mpl_tracking.setEnabled(True)
             self.checkBox_showcursor.setEnabled(False)
             self.checkBox_mpl_tracking.setCheckState(2)
             self.profiletoolcore.activateMouseTracking(2)
             self.checkBox_mpl_tracking.stateChanged.connect(self.profiletoolcore.activateMouseTracking)
+            self.cbSameAxisScale.setCheckState(Qt.Unchecked)
 
         else:
             self.checkBox_mpl_tracking.setCheckState(0)
             self.checkBox_mpl_tracking.setEnabled(False)
+            self.cbSameAxisScale.setCheckState(Qt.Unchecked)
+
+        self.cbSameAxisScale.setEnabled(self.plotlibrary == 'PyQtGraph')
 
     def addPlotWidget(self, library):
         layout = self.frame_for_plot.layout()
@@ -341,9 +349,20 @@ class PTDockWidget(QDockWidget, FormClass):
 
             self.profiletoolcore.plotProfil()
 
-    # ********************************************************************************
-    # coordinate tab ****************************************************************
-    # ********************************************************************************
+    def _onSameAxisScaleStateChanged(self, state):
+        """
+        Called whenever the checkbox button for same scale axis status has changed
+        if checked, plot will always keep same scale on both axis (aspect ratio of 1)
+
+        Only supported with PyQtGraph
+        """
+
+        if ( self.plotlibrary == 'PyQtGraph' ):
+            self.plotWdg.getViewBox().setAspectLocked(state == Qt.Checked)
+
+    #********************************************************************************
+    #coordinate tab ****************************************************************
+    #********************************************************************************
     @staticmethod
     def _profile_name(profile):
         groupTitle = profile["layer"].name()

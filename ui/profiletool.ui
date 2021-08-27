@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>791</width>
+    <width>921</width>
     <height>380</height>
    </rect>
   </property>
@@ -151,7 +151,16 @@
             <item row="1" column="0" colspan="2">
              <widget class="QWidget" name="widget_save_buttons" native="true">
               <layout class="QHBoxLayout" name="horizontalLayout_3">
-               <property name="margin">
+               <property name="leftMargin">
+                <number>2</number>
+               </property>
+               <property name="topMargin">
+                <number>2</number>
+               </property>
+               <property name="rightMargin">
+                <number>2</number>
+               </property>
+               <property name="bottomMargin">
                 <number>2</number>
                </property>
                <item>
@@ -336,6 +345,33 @@
                <string>Options</string>
               </property>
               <layout class="QGridLayout" name="gridLayout">
+               <item row="1" column="1">
+                <widget class="QCheckBox" name="checkBox_mpl_tracking">
+                 <property name="enabled">
+                  <bool>true</bool>
+                 </property>
+                 <property name="text">
+                  <string>Link mouse position 
+on graph with canvas</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="1" column="0">
+                <widget class="QCheckBox" name="checkBox_showcursor">
+                 <property name="text">
+                  <string>Show cursor</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tristate">
+                  <bool>false</bool>
+                 </property>
+                </widget>
+               </item>
                <item row="0" column="0">
                 <widget class="QLabel" name="label">
                  <property name="text">
@@ -371,30 +407,13 @@
                  </item>
                 </widget>
                </item>
-               <item row="1" column="0">
-                <widget class="QCheckBox" name="checkBox_showcursor">
-                 <property name="text">
-                  <string>Show cursor</string>
-                 </property>
-                 <property name="checked">
-                  <bool>true</bool>
-                 </property>
-                 <property name="tristate">
-                  <bool>false</bool>
-                 </property>
-                </widget>
-               </item>
-               <item row="1" column="1">
-                <widget class="QCheckBox" name="checkBox_mpl_tracking">
-                 <property name="enabled">
-                  <bool>true</bool>
+               <item row="2" column="0">
+                <widget class="QCheckBox" name="cbSameAxisScale">
+                 <property name="toolTip">
+                  <string>Always keep the same scale for X and Y axis. &lt;br/&gt;&lt;br/&gt;&lt;i&gt;Only available with PyQtGraph plot library&lt;/i&gt;</string>
                  </property>
                  <property name="text">
-                  <string>Link mouse position 
-on graph with canvas</string>
-                 </property>
-                 <property name="checked">
-                  <bool>true</bool>
+                  <string>Same axis scale</string>
                  </property>
                 </widget>
                </item>
@@ -422,7 +441,7 @@ on graph with canvas</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>747</width>
+             <width>879</width>
              <height>294</height>
             </rect>
            </property>
