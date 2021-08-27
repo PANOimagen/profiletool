@@ -10,6 +10,11 @@ author=Borys Jurgiel - Patrice Verchere - Etienne Tourigny - Javier Becerra
 email=javier@panoimagen.com
 
 changelog=
+    4.2.0 :
+        - Feature : Add Same scale axis button #61 (Funded by Lille Metropole)
+        - Feature : Support PostTelemac pluginlayer #49
+        - Several fixes : #41, #50, #51, #57 and numpy deprecations 
+        - PyQtGraph upgrade (0.11.0 -> 0.12.1)
     4.1.9 : Fix Issue #32
     4.1.8 : Fix Issue #35
     4.1.7 : Fix Issues #25, #27, #30 and reaply patch for issue #23.
@@ -61,5 +66,5 @@ tracker=https://github.com/PANOimagen/profiletool/issues
 repository=https://github.com/PANOimagen/profiletool
 icon=icons/profileIcon.png
 
-experimental=True
+experimental=False
 deprecated=False
