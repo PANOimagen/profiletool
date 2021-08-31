@@ -11,7 +11,6 @@ from .widgets.PlotWidget import *
 from .imageview import *
 from .widgets.GraphicsLayoutWidget import GraphicsLayoutWidget
 from .widgets.GraphicsView import GraphicsView
-import warnings
 
 
 class GraphicsWindow(GraphicsLayoutWidget):
@@ -22,11 +21,6 @@ class GraphicsWindow(GraphicsLayoutWidget):
     is intended for use from the interactive python prompt.
     """
     def __init__(self, title=None, size=(800,600), **kargs):
-        warnings.warn(
-            'GraphicsWindow is deprecated, use GraphicsLayoutWidget instead,'
-            'will be removed in 0.13',
-            DeprecationWarning, stacklevel=2
-        )
         mkQApp()
         GraphicsLayoutWidget.__init__(self, **kargs)
         self.resize(*size)
@@ -40,10 +34,6 @@ class TabWindow(QtGui.QMainWindow):
     (deprecated)
     """
     def __init__(self, title=None, size=(800,600)):
-        warnings.warn(
-            'TabWindow is deprecated, will be removed in 0.13',
-            DeprecationWarning, stacklevel=2
-        )
         mkQApp()
         QtGui.QMainWindow.__init__(self)
         self.resize(*size)
@@ -64,11 +54,6 @@ class PlotWindow(PlotWidget):
     (deprecated; use :class:`~pyqtgraph.PlotWidget` instead)
     """
     def __init__(self, title=None, **kargs):
-        warnings.warn(
-            'PlotWindow is deprecated, use PlotWidget instead,'
-            'will be removed in 0.13',
-            DeprecationWarning, stacklevel=2
-        )    
         mkQApp()
         self.win = QtGui.QMainWindow()
         PlotWidget.__init__(self, **kargs)
@@ -91,11 +76,6 @@ class ImageWindow(ImageView):
     (deprecated; use :class:`~pyqtgraph.ImageView` instead)
     """
     def __init__(self, *args, **kargs):
-        warnings.warn(
-            'ImageWindow is deprecated, use ImageView instead'
-            'will be removed in 0.13',
-            DeprecationWarning, stacklevel=2
-        ) 
         mkQApp()
         self.win = QtGui.QMainWindow()
         self.win.resize(800,600)

@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
-from ..Qt import QtCore, QtGui, QtWidgets
+from ..Qt import QtCore, QtGui
 from ..graphicsItems.GraphicsObject import GraphicsObject
 from .. import functions as fn
 from .Terminal import *
-from collections import OrderedDict
+from ..pgcollections import OrderedDict
 from ..debug import *
 import numpy as np
-import warnings
 
-translate = QtCore.QCoreApplication.translate
 
 def strDict(d):
     return dict([(str(k), v) for k, v in d.items()])
@@ -191,12 +189,6 @@ class Node(QtCore.QObject):
     ## this is just bad planning. Causes too many bugs.
     def __getattr__(self, attr):
         """Return the terminal with the given name"""
-        warnings.warn(
-            "Use of note.terminalName is deprecated, use node['terminalName'] instead"
-            "Will be removed from 0.13.0",
-            DeprecationWarning, stacklevel=2
-        )
-        
         if attr not in self.terminals:
             raise AttributeError(attr)
         else:
@@ -444,24 +436,6 @@ class Node(QtCore.QObject):
             t.disconnectAll()
     
 
-class TextItem(QtWidgets.QGraphicsTextItem):
-    def __init__(self, text, parent, on_update):
-        super().__init__(text, parent)
-        self.on_update = on_update
-
-    def focusOutEvent(self, ev):
-        super().focusOutEvent(ev)
-        if self.on_update is not None:
-            self.on_update()
-
-    def keyPressEvent(self, ev):
-        if ev.key() == QtCore.Qt.Key_Enter or ev.key() == QtCore.Qt.Key_Return:
-            if self.on_update is not None:
-                self.on_update()
-                return
-        super().keyPressEvent(ev)
-
-
 #class NodeGraphicsItem(QtGui.QGraphicsItem):
 class NodeGraphicsItem(GraphicsObject):
     def __init__(self, node):
@@ -487,13 +461,16 @@ class NodeGraphicsItem(GraphicsObject):
 
         self.setFlags(flags)
         self.bounds = QtCore.QRectF(0, 0, 100, 100)
-        self.nameItem = TextItem(self.node.name(), self, self.labelChanged)
+        self.nameItem = QtGui.QGraphicsTextItem(self.node.name(), self)
         self.nameItem.setDefaultTextColor(QtGui.QColor(50, 50, 50))
         self.nameItem.moveBy(self.bounds.width()/2. - self.nameItem.boundingRect().width()/2., 0)
         self.nameItem.setTextInteractionFlags(QtCore.Qt.TextEditorInteraction)
         self.updateTerminals()
         #self.setZValue(10)
 
+        self.nameItem.focusOutEvent = self.labelFocusOut
+        self.nameItem.keyPressEvent = self.labelKeyPress
+        
         self.menu = None
         self.buildMenu()
         
@@ -503,6 +480,16 @@ class NodeGraphicsItem(GraphicsObject):
         #for t, item in self.terminals.values():
             #item.setZValue(z+1)
         #GraphicsObject.setZValue(self, z)
+        
+    def labelFocusOut(self, ev):
+        QtGui.QGraphicsTextItem.focusOutEvent(self.nameItem, ev)
+        self.labelChanged()
+        
+    def labelKeyPress(self, ev):
+        if ev.key() == QtCore.Qt.Key_Enter or ev.key() == QtCore.Qt.Key_Return:
+            self.labelChanged()
+        else:
+            QtGui.QGraphicsTextItem.keyPressEvent(self.nameItem, ev)
         
     def labelChanged(self):
         newName = str(self.nameItem.toPlainText())
@@ -587,7 +574,7 @@ class NodeGraphicsItem(GraphicsObject):
 
     def mouseClickEvent(self, ev):
         #print "Node.mouseClickEvent called."
-        if ev.button() == QtCore.Qt.LeftButton:
+        if int(ev.button()) == int(QtCore.Qt.LeftButton):
             ev.accept()
             #print "    ev.button: left"
             sel = self.isSelected()
@@ -600,7 +587,7 @@ class NodeGraphicsItem(GraphicsObject):
                 self.update()
             #return ret
         
-        elif ev.button() == QtCore.Qt.RightButton:
+        elif int(ev.button()) == int(QtCore.Qt.RightButton):
             #print "    ev.button: right"
             ev.accept()
             #pos = ev.screenPos()
@@ -647,14 +634,14 @@ class NodeGraphicsItem(GraphicsObject):
         
     def buildMenu(self):
         self.menu = QtGui.QMenu()
-        self.menu.setTitle(translate("Context Menu", "Node"))
-        a = self.menu.addAction(translate("Context Menu","Add input"), self.addInputFromMenu)
+        self.menu.setTitle("Node")
+        a = self.menu.addAction("Add input", self.addInputFromMenu)
         if not self.node._allowAddInput:
             a.setEnabled(False)
-        a = self.menu.addAction(translate("Context Menu", "Add output"), self.addOutputFromMenu)
+        a = self.menu.addAction("Add output", self.addOutputFromMenu)
         if not self.node._allowAddOutput:
             a.setEnabled(False)
-        a = self.menu.addAction(translate("Context Menu", "Remove node"), self.node.close)
+        a = self.menu.addAction("Remove node", self.node.close)
         if not self.node._allowRemove:
             a.setEnabled(False)
         

@@ -1,7 +1,9 @@
+import pytest
 import pyqtgraph as pg
 
+
 def test_legend_item_basics():
-    pg.mkQApp()
+    app = pg.mkQApp()
 
     legend = pg.LegendItem()
 
@@ -13,12 +15,12 @@ def test_legend_item_basics():
 
     assert legend.columnCount == 1
     assert legend.rowCount == 1
+    assert legend.curRow == 0
 
     assert legend.labelTextColor() is None
     assert legend.labelTextSize() == '9pt'
     assert legend.brush() == pg.mkBrush(None)
     assert legend.pen() == pg.mkPen(None)
-    assert legend.sampleType is pg.ItemSample
 
     # Set brush
     # ----------------------------------------------------
@@ -64,24 +66,21 @@ def test_legend_item_basics():
     legend.addItem(scatter, name="Scatter")
     assert len(legend.items) == 2
     assert legend.columnCount == 1
-    assert legend.rowCount == 2
+    assert legend.rowCount == 1
 
     curve = pg.PlotDataItem(name="Curve")
     legend.addItem(curve, name="Curve")
     assert len(legend.items) == 3
-    assert legend.rowCount == 3
 
     scrabble = pg.PlotDataItem(name="Scrabble")
     legend.addItem(scrabble, name="Scrabble")
     assert len(legend.items) == 4
 
     assert legend.layout.rowCount() == 4
-    assert legend.rowCount == 4
     legend.setColumnCount(2)
-    assert legend.columnCount == 2
     assert legend.rowCount == 2
 
-    assert legend.layout.rowCount() == 2
+    assert legend.layout.rowCount() == 3
 
     # Remove items
     # ----------------------------------------------------
@@ -93,7 +92,7 @@ def test_legend_item_basics():
     assert len(legend.items) == 3
 
     legend.removeItem(curve)
-    assert legend.rowCount == 2 # rowCount will never decrease when removing
+    assert legend.rowCount == 2
     assert legend.layout.rowCount() == 1
     assert curve not in legend.items
     assert len(legend.items) == 2

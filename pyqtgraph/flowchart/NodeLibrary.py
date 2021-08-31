@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from ..pgcollections import OrderedDict
 from .Node import Node
 
 def isNodeClass(cls):

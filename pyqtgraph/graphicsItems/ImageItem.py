@@ -1,23 +1,19 @@
 # -*- coding: utf-8 -*-
 from __future__ import division
 
-import numpy
-
-from .GraphicsObject import GraphicsObject
-from .. import debug as debug
-from .. import functions as fn
-from .. import getConfigOption
-from ..Point import Point
 from ..Qt import QtGui, QtCore
-from ..util.cupy_helper import getCupy
+import numpy as np
+from .. import functions as fn
+from .. import debug as debug
+from .GraphicsObject import GraphicsObject
+from ..Point import Point
+from .. import getConfigOption
 
 try:
     from collections.abc import Callable
 except ImportError:
     # fallback for python < 3.3
     from collections import Callable
-
-translate = QtCore.QCoreApplication.translate
 
 __all__ = ['ImageItem']
 
@@ -52,17 +48,11 @@ class ImageItem(GraphicsObject):
         self.qimage = None  ## rendered image for display
 
         self.paintMode = None
+
         self.levels = None  ## [min, max] or [[redMin, redMax], ...]
         self.lut = None
         self.autoDownsample = False
         self._lastDownsample = (1, 1)
-        self._processingBuffer = None
-        self._displayBuffer = None
-        self._renderRequired = True
-        self._unrenderable = False
-        self._cupy = getCupy()
-        self._xp = None  # either numpy or cupy, to match the image data
-        self._defferedLevels = None
 
         self.axisOrder = getConfigOption('imageAxisOrder')
 
@@ -134,16 +124,13 @@ class ImageItem(GraphicsObject):
         Only the first format is compatible with lookup tables. See :func:`makeARGB <pyqtgraph.makeARGB>`
         for more details on how levels are applied.
         """
-        if self._xp is None:
-            self.levels = levels
-            self._defferedLevels = levels
-            return
         if levels is not None:
-            levels = self._xp.asarray(levels)
-        self.levels = levels
-        self._effectiveLut = None
-        if update:
-            self.updateImage()
+            levels = np.asarray(levels)
+        if not fn.eq(levels, self.levels):
+            self.levels = levels
+            self._effectiveLut = None
+            if update:
+                self.updateImage()
 
     def getLevels(self):
         return self.levels
@@ -172,7 +159,7 @@ class ImageItem(GraphicsObject):
         Added in version 0.9.9
         """
         self.autoDownsample = ads
-        self._renderRequired = True
+        self.qimage = None
         self.update()
 
     def setOpts(self, update=True, **kargs):
@@ -203,24 +190,15 @@ class ImageItem(GraphicsObject):
 
     def setRect(self, rect):
         """Scale and translate the image to fit within rect (must be a QRect or QRectF)."""
-        tr = QtGui.QTransform()
-        tr.translate(rect.left(), rect.top())
-        tr.scale(rect.width() / self.width(), rect.height() / self.height())
-        self.setTransform(tr)
+        self.resetTransform()
+        self.translate(rect.left(), rect.top())
+        self.scale(rect.width() / self.width(), rect.height() / self.height())
 
     def clear(self):
         self.image = None
         self.prepareGeometryChange()
         self.informViewBoundsChanged()
         self.update()
-
-    def _buildQImageBuffer(self, shape):
-        self._displayBuffer = numpy.empty(shape[:2] + (4,), dtype=numpy.ubyte)
-        if self._xp == self._cupy:
-            self._processingBuffer = self._xp.empty(shape[:2] + (4,), dtype=self._xp.ubyte)
-        else:
-            self._processingBuffer = self._displayBuffer
-        self.qimage = fn.makeQImage(self._displayBuffer, transpose=False, copy=False)
 
     def setImage(self, image=None, autoLevels=None, **kargs):
         """
@@ -272,14 +250,9 @@ class ImageItem(GraphicsObject):
             if self.image is None:
                 return
         else:
-            old_xp = self._xp
-            self._xp = self._cupy.get_array_module(image) if self._cupy else numpy
             gotNewData = True
-            processingSubstrateChanged = old_xp != self._xp
-            if processingSubstrateChanged:
-                self._processingBuffer = None
-            shapeChanged = (processingSubstrateChanged or self.image is None or image.shape != self.image.shape)
-            image = image.view()
+            shapeChanged = (self.image is None or image.shape != self.image.shape)
+            image = image.view(np.ndarray)
             if self.image is None or image.dtype != self.image.dtype:
                 self._effectiveLut = None
             self.image = image
@@ -301,9 +274,9 @@ class ImageItem(GraphicsObject):
             img = self.image
             while img.size > 2**16:
                 img = img[::2, ::2]
-            mn, mx = self._xp.nanmin(img), self._xp.nanmax(img)
+            mn, mx = np.nanmin(img), np.nanmax(img)
             # mn and mx can still be NaN if the data is all-NaN
-            if mn == mx or self._xp.isnan(mn) or self._xp.isnan(mx):
+            if mn == mx or np.isnan(mn) or np.isnan(mx):
                 mn = 0
                 mx = 255
             kargs['levels'] = [mn,mx]
@@ -314,17 +287,13 @@ class ImageItem(GraphicsObject):
 
         profile()
 
-        self._renderRequired = True
+        self.qimage = None
         self.update()
 
         profile()
 
         if gotNewData:
             self.sigImageChanged.emit()
-        if self._defferedLevels is not None:
-            levels = self._defferedLevels
-            self._defferedLevels = None
-            self.setLevels((levels))
 
     def dataTransform(self):
         """Return the transform that maps from this image's input array to its
@@ -368,11 +337,11 @@ class ImageItem(GraphicsObject):
         """
         data = self.image
         while data.size > targetSize:
-            ax = self._xp.argmax(data.shape)
+            ax = np.argmax(data.shape)
             sl = [slice(None)] * data.ndim
             sl[ax] = slice(None, None, 2)
             data = data[sl]
-        return self._xp.nanmin(data), self._xp.nanmax(data)
+        return np.nanmin(data), np.nanmax(data)
 
     def updateImage(self, *args, **kargs):
         ## used for re-rendering qimage from self.image.
@@ -387,7 +356,8 @@ class ImageItem(GraphicsObject):
 
     def render(self):
         # Convert data to QImage for display.
-        self._unrenderable = True
+
+        profile = debug.Profiler()
         if self.image is None or self.image.size == 0:
             return
 
@@ -403,6 +373,7 @@ class ImageItem(GraphicsObject):
         if self.autoDownsample:
             xds, yds = self._computeDownsampleFactors()
             if xds is None:
+                self.qimage = None
                 return
 
             axes = [1, 0] if self.axisOrder == 'row-major' else [0, 1]
@@ -419,18 +390,21 @@ class ImageItem(GraphicsObject):
         # if the image data is a small int, then we can combine levels + lut
         # into a single lut for better performance
         levels = self.levels
-        if levels is not None and lut is not None and levels.ndim == 1 and \
-                image.dtype in (self._xp.ubyte, self._xp.uint16):
+        if levels is not None and levels.ndim == 1 and image.dtype in (np.ubyte, np.uint16):
             if self._effectiveLut is None:
                 eflsize = 2**(image.itemsize*8)
-                ind = self._xp.arange(eflsize)
+                ind = np.arange(eflsize)
                 minlev, maxlev = levels
                 levdiff = maxlev - minlev
                 levdiff = 1 if levdiff == 0 else levdiff  # don't allow division by 0
-                lutdtype = self._xp.min_scalar_type(lut.shape[0] - 1)
-                efflut = fn.rescaleData(ind, scale=(lut.shape[0]-1)/levdiff,
-                                        offset=minlev, dtype=lutdtype, clip=(0, lut.shape[0]-1))
-                efflut = lut[efflut]
+                if lut is None:
+                    efflut = fn.rescaleData(ind, scale=255./levdiff,
+                                            offset=minlev, dtype=np.ubyte)
+                else:
+                    lutdtype = np.min_scalar_type(lut.shape[0]-1)
+                    efflut = fn.rescaleData(ind, scale=(lut.shape[0]-1)/levdiff,
+                                            offset=minlev, dtype=lutdtype, clip=(0, lut.shape[0]-1))
+                    efflut = lut[efflut]
 
                 self._effectiveLut = efflut
             lut = self._effectiveLut
@@ -445,22 +419,16 @@ class ImageItem(GraphicsObject):
         if self.axisOrder == 'col-major':
             image = image.transpose((1, 0, 2)[:image.ndim])
 
-        if self._processingBuffer is None or self._processingBuffer.shape[:2] != image.shape[:2]:
-            self._buildQImageBuffer(image.shape)
-
-        fn.makeARGB(image, lut=lut, levels=levels, output=self._processingBuffer)
-        if self._xp == self._cupy:
-            self._processingBuffer.get(out=self._displayBuffer)
-        self._renderRequired = False
-        self._unrenderable = False
+        argb, alpha = fn.makeARGB(image, lut=lut, levels=levels)
+        self.qimage = fn.makeQImage(argb, alpha, transpose=False)
 
     def paint(self, p, *args):
         profile = debug.Profiler()
         if self.image is None:
             return
-        if self._renderRequired:
+        if self.qimage is None:
             self.render()
-            if self._unrenderable:
+            if self.qimage is None:
                 return
             profile('render QImage')
         if self.paintMode is not None:
@@ -476,7 +444,7 @@ class ImageItem(GraphicsObject):
 
     def save(self, fileName, *args):
         """Save this image to file. Note that this saves the visible image (after scale/color changes), not the original data."""
-        if self._renderRequired:
+        if self.qimage is None:
             self.render()
         self.qimage.save(fileName, *args)
 
@@ -490,7 +458,7 @@ class ImageItem(GraphicsObject):
         dimensions roughly *targetImageSize* for each axis.
 
         The *bins* argument and any extra keyword arguments are passed to
-        self.xp.histogram(). If *bins* is 'auto', then a bin number is automatically
+        np.histogram(). If *bins* is 'auto', then a bin number is automatically
         chosen based on the image characteristics:
 
         * Integer images will have approximately *targetHistogramSize* bins,
@@ -505,33 +473,33 @@ class ImageItem(GraphicsObject):
         if self.image is None or self.image.size == 0:
             return None, None
         if step == 'auto':
-            step = (max(1, int(self._xp.ceil(self.image.shape[0] / targetImageSize))),
-                    max(1, int(self._xp.ceil(self.image.shape[1] / targetImageSize))))
-        if self._xp.isscalar(step):
+            step = (max(1, int(np.ceil(self.image.shape[0] / targetImageSize))),
+                    max(1, int(np.ceil(self.image.shape[1] / targetImageSize))))
+        if np.isscalar(step):
             step = (step, step)
         stepData = self.image[::step[0], ::step[1]]
 
         if isinstance(bins, str) and bins == 'auto':
-            mn = self._xp.nanmin(stepData).item()
-            mx = self._xp.nanmax(stepData).item()
+            mn = np.nanmin(stepData)
+            mx = np.nanmax(stepData)
             if mx == mn:
                 # degenerate image, arange will fail
                 mx += 1
-            if self._xp.isnan(mn) or self._xp.isnan(mx):
+            if np.isnan(mn) or np.isnan(mx):
                 # the data are all-nan
                 return None, None
             if stepData.dtype.kind in "ui":
                 # For integer data, we select the bins carefully to avoid aliasing
-                step = int(self._xp.ceil((mx - mn) / 500.))
+                step = np.ceil((mx-mn) / 500.)
                 bins = []
                 if step > 0.0:
-                    bins = self._xp.arange(mn, mx + 1.01 * step, step, dtype=self._xp.int)
+                    bins = np.arange(mn, mx+1.01*step, step, dtype=np.int)
             else:
                 # for float data, let numpy select the bins.
-                bins = self._xp.linspace(mn, mx, 500)
+                bins = np.linspace(mn, mx, 500)
 
             if len(bins) == 0:
-                bins = self._xp.asarray((mn, mx))
+                bins = [mn, mx]
 
         kwds['bins'] = bins
 
@@ -539,20 +507,14 @@ class ImageItem(GraphicsObject):
             hist = []
             for i in range(stepData.shape[-1]):
                 stepChan = stepData[..., i]
-                stepChan = stepChan[self._xp.isfinite(stepChan)]
-                h = self._xp.histogram(stepChan, **kwds)
-                if self._cupy:
-                    hist.append((self._cupy.asnumpy(h[1][:-1]), self._cupy.asnumpy(h[0])))
-                else:
-                    hist.append((h[1][:-1], h[0]))
+                stepChan = stepChan[np.isfinite(stepChan)]
+                h = np.histogram(stepChan, **kwds)
+                hist.append((h[1][:-1], h[0]))
             return hist
         else:
-            stepData = stepData[self._xp.isfinite(stepData)]
-            hist = self._xp.histogram(stepData, **kwds)
-            if self._cupy:
-                return self._cupy.asnumpy(hist[1][:-1]), self._cupy.asnumpy(hist[0])
-            else:
-                return hist[1][:-1], hist[0]
+            stepData = stepData[np.isfinite(stepData)]
+            hist = np.histogram(stepData, **kwds)
+            return hist[1][:-1], hist[0]
 
     def setPxMode(self, b):
         """
@@ -567,9 +529,9 @@ class ImageItem(GraphicsObject):
         self.setPxMode(False)
 
     def getPixmap(self):
-        if self._renderRequired:
+        if self.qimage is None:
             self.render()
-            if self._unrenderable:
+            if self.qimage is None:
                 return None
         return QtGui.QPixmap.fromImage(self.qimage)
 
@@ -584,11 +546,10 @@ class ImageItem(GraphicsObject):
         if self.autoDownsample:
             xds, yds = self._computeDownsampleFactors()
             if xds is None:
-                self._renderRequired = True
-                self._unrenderable = True
+                self.qimage = None
                 return
             if (xds, yds) != self._lastDownsample:
-                self._renderRequired = True
+                self.qimage = None
                 self.update()
 
     def _computeDownsampleFactors(self):
@@ -634,8 +595,8 @@ class ImageItem(GraphicsObject):
             if not self.removable:
                 return None
             self.menu = QtGui.QMenu()
-            self.menu.setTitle(translate("ImageItem", "Image"))
-            remAct = QtGui.QAction(translate("ImageItem", "Remove image"), self.menu)
+            self.menu.setTitle("Image")
+            remAct = QtGui.QAction("Remove image", self.menu)
             remAct.triggered.connect(self.removeClicked)
             self.menu.addAction(remAct)
             self.menu.remAct = remAct

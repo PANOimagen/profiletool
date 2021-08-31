@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from OpenGL.GL import *
 from OpenGL.arrays import vbo
 from .. GLGraphicsItem import GLGraphicsItem
@@ -15,7 +14,7 @@ class GLScatterPlotItem(GLGraphicsItem):
         GLGraphicsItem.__init__(self)
         glopts = kwds.pop('glOptions', 'additive')
         self.setGLOptions(glopts)
-        self.pos = None
+        self.pos = []
         self.size = 10
         self.color = [1.0,1.0,1.0,0.5]
         self.pxMode = True
@@ -100,9 +99,6 @@ class GLScatterPlotItem(GLGraphicsItem):
         ##glPointParameterfv(GL_POINT_SIZE_MIN, (0,))
         
     def paint(self):
-        if self.pos is None:
-            return
-
         self.setupGLState()
         
         glEnable(GL_POINT_SPRITE)

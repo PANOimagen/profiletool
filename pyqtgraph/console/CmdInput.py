@@ -24,7 +24,7 @@ class CmdInput(QtGui.QLineEdit):
         elif ev.key() == QtCore.Qt.Key_Return:
             self.execCmd()
         else:
-            super().keyPressEvent(ev)
+            QtGui.QLineEdit.keyPressEvent(self, ev)
             self.history[0] = asUnicode(self.text())
         
     def execCmd(self):

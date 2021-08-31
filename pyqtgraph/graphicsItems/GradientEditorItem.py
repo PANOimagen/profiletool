@@ -7,10 +7,9 @@ from .. import functions as fn
 from .GraphicsObject import GraphicsObject
 from .GraphicsWidget import GraphicsWidget
 from ..widgets.SpinBox import SpinBox
-from collections import OrderedDict
+from ..pgcollections import OrderedDict
 from ..colormap import ColorMap
 
-translate = QtCore.QCoreApplication.translate
 
 __all__ = ['TickSliderItem', 'GradientEditorItem']
 
@@ -151,8 +150,7 @@ class TickSliderItem(GraphicsWidget):
         elif ort != 'bottom':
             raise Exception("%s is not a valid orientation. Options are 'left', 'right', 'top', and 'bottom'" %str(ort))
         
-        tr = QtGui.QTransform.fromTranslate(self.tickSize/2., 0)
-        self.setTransform(tr, True)
+        self.translate(self.tickSize/2., 0)
     
     def addTick(self, x, color=None, movable=True, finish=True):
         ## public
@@ -444,12 +442,12 @@ class GradientEditorItem(TickSliderItem):
         
         self.setMaxDim(self.rectSize + self.tickSize)
         
-        self.rgbAction = QtGui.QAction(translate("GradiantEditorItem", 'RGB'), self)
+        self.rgbAction = QtGui.QAction('RGB', self)
         self.rgbAction.setCheckable(True)
-        self.rgbAction.triggered.connect(self._setColorModeToRGB)
-        self.hsvAction = QtGui.QAction(translate("GradiantEditorItem", 'HSV'), self)
+        self.rgbAction.triggered.connect(lambda: self.setColorMode('rgb'))
+        self.hsvAction = QtGui.QAction('HSV', self)
         self.hsvAction.setCheckable(True)
-        self.hsvAction.triggered.connect(self._setColorModeToHSV)
+        self.hsvAction.triggered.connect(lambda: self.setColorMode('hsv'))
             
         self.menu = QtGui.QMenu()
         
@@ -493,7 +491,7 @@ class GradientEditorItem(TickSliderItem):
         self.updateGradient()
         self.linkedGradients = {}
         
-        self.sigTicksChanged.connect(self._updateGradientIgnoreArgs)
+        self.sigTicksChanged.connect(lambda *args, **kwargs: self.updateGradient())
         self.sigTicksChangeFinished.connect(self.sigGradientChangeFinished.emit)
 
     def showTicks(self, show=True):
@@ -522,8 +520,7 @@ class GradientEditorItem(TickSliderItem):
         ==============  ===================================================================
         """
         TickSliderItem.setOrientation(self, orientation)
-        tr = QtGui.QTransform.fromTranslate(0, self.rectSize)
-        self.setTransform(tr, True)
+        self.translate(0, self.rectSize)
     
     def showMenu(self, ev):
         #private
@@ -566,13 +563,7 @@ class GradientEditorItem(TickSliderItem):
         
         self.sigTicksChanged.emit(self)
         self.sigGradientChangeFinished.emit(self)
-
-    def _setColorModeToRGB(self):
-        self.setColorMode("rgb")
-
-    def _setColorModeToHSV(self):
-        self.setColorMode("hsv")
-
+        
     def colorMap(self):
         """Return a ColorMap object representing the current state of the editor."""
         if self.colorMode == 'hsv':
@@ -590,10 +581,7 @@ class GradientEditorItem(TickSliderItem):
         self.gradient = self.getGradient()
         self.gradRect.setBrush(QtGui.QBrush(self.gradient))
         self.sigGradientChanged.emit(self)
-
-    def _updateGradientIgnoreArgs(self, *args, **kwargs):
-        self.updateGradient()
-
+        
     def setLength(self, newLen):
         #private (but maybe public)
         TickSliderItem.setLength(self, newLen)
@@ -961,11 +949,11 @@ class TickMenu(QtGui.QMenu):
         self.tick = weakref.ref(tick)
         self.sliderItem = weakref.ref(sliderItem)
         
-        self.removeAct = self.addAction(translate("GradientEditorItem", "Remove Tick"), lambda: self.sliderItem().removeTick(tick))
+        self.removeAct = self.addAction("Remove Tick", lambda: self.sliderItem().removeTick(tick))
         if (not self.tick().removeAllowed) or len(self.sliderItem().ticks) < 3:
             self.removeAct.setEnabled(False)
             
-        positionMenu = self.addMenu(translate("GradientEditorItem", "Set Position"))
+        positionMenu = self.addMenu("Set Position")
         w = QtGui.QWidget()
         l = QtGui.QGridLayout()
         w.setLayout(l)
@@ -976,7 +964,7 @@ class TickMenu(QtGui.QMenu):
         #self.dataPosSpin = SpinBox(value=dataVal)
         #self.dataPosSpin.setOpts(decimals=3, siPrefix=True)
                 
-        l.addWidget(QtGui.QLabel(f"{translate('GradiantEditorItem', 'Position')}:"), 0,0)
+        l.addWidget(QtGui.QLabel("Position:"), 0,0)
         l.addWidget(self.fracPosSpin, 0, 1)
         #l.addWidget(QtGui.QLabel("Position (data units):"), 1, 0)
         #l.addWidget(self.dataPosSpin, 1,1)
@@ -991,7 +979,7 @@ class TickMenu(QtGui.QMenu):
         self.fracPosSpin.sigValueChanging.connect(self.fractionalValueChanged)
         #self.dataPosSpin.valueChanged.connect(self.dataValueChanged)
         
-        colorAct = self.addAction(translate("Context Menu", "Set Color"), lambda: self.sliderItem().raiseColorDialog(self.tick()))
+        colorAct = self.addAction("Set Color", lambda: self.sliderItem().raiseColorDialog(self.tick()))
         if not self.tick().colorChangeAllowed:
             colorAct.setEnabled(False)
 

@@ -16,9 +16,14 @@ import os, sys
 import numpy as np
 
 from ..Qt import QtCore, QtGui, QT_LIB
-import importlib
-ui_template = importlib.import_module(
-    f'.ImageViewTemplate_{QT_LIB.lower()}', package=__package__)
+if QT_LIB == 'PySide':
+    from .ImageViewTemplate_pyside import *
+elif QT_LIB == 'PySide2':
+    from .ImageViewTemplate_pyside2 import *
+elif QT_LIB == 'PyQt5':
+    from .ImageViewTemplate_pyqt5 import *
+else:
+    from .ImageViewTemplate_pyqt import *
     
 from ..graphicsItems.ImageItem import *
 from ..graphicsItems.ROI import *
@@ -37,7 +42,6 @@ try:
 except ImportError:
     from numpy import nanmin, nanmax
 
-translate = QtCore.QCoreApplication.translate
 
 class PlotROI(ROI):
     def __init__(self, size):
@@ -122,7 +126,7 @@ class ImageView(QtGui.QWidget):
         self.image = None
         self.axes = {}
         self.imageDisp = None
-        self.ui = ui_template.Ui_Form()
+        self.ui = Ui_Form()
         self.ui.setupUi(self)
         self.scene = self.ui.graphicsView.scene()
         self.ui.histogram.setLevelMode(levelMode)
@@ -429,10 +433,7 @@ class ImageView(QtGui.QWidget):
         self.setParent(None)
         
     def keyPressEvent(self, ev):
-        if not self.hasTimeAxis():
-            super().keyPressEvent(ev)
-            return
-
+        #print ev.key()
         if ev.key() == QtCore.Qt.Key_Space:
             if self.playRate == 0:
                 self.play()
@@ -454,13 +455,9 @@ class ImageView(QtGui.QWidget):
             self.keysPressed[ev.key()] = 1
             self.evalKeyState()
         else:
-            super().keyPressEvent(ev)
+            QtGui.QWidget.keyPressEvent(self, ev)
 
     def keyReleaseEvent(self, ev):
-        if not self.hasTimeAxis():
-            super().keyReleaseEvent(ev)
-            return
-
         if ev.key() in [QtCore.Qt.Key_Space, QtCore.Qt.Key_Home, QtCore.Qt.Key_End]:
             ev.accept()
         elif ev.key() in self.noRepeatKeys:
@@ -473,7 +470,7 @@ class ImageView(QtGui.QWidget):
                 self.keysPressed = {}
             self.evalKeyState()
         else:
-            super().keyReleaseEvent(ev)
+            QtGui.QWidget.keyReleaseEvent(self, ev)
         
     def evalKeyState(self):
         if len(self.keysPressed) == 1:
@@ -563,7 +560,7 @@ class ImageView(QtGui.QWidget):
             self.roi.show()
             #self.ui.roiPlot.show()
             self.ui.roiPlot.setMouseEnabled(True, True)
-            self.ui.splitter.setSizes([int(self.height()*0.6), int(self.height()*0.4)])
+            self.ui.splitter.setSizes([self.height()*0.6, self.height()*0.4])
             self.ui.splitter.handle(1).setEnabled(True)
             self.roiCurve.show()
             self.roiChanged()
@@ -763,7 +760,7 @@ class ImageView(QtGui.QWidget):
             
     def timeIndex(self, slider):
         ## Return the time and frame index indicated by a slider
-        if not self.hasTimeAxis():
+        if self.image is None:
             return (0,0)
         
         t = slider.value()
@@ -825,11 +822,11 @@ class ImageView(QtGui.QWidget):
         
     def buildMenu(self):
         self.menu = QtGui.QMenu()
-        self.normAction = QtGui.QAction(translate("ImageView", "Normalization"), self.menu)
+        self.normAction = QtGui.QAction("Normalization", self.menu)
         self.normAction.setCheckable(True)
         self.normAction.toggled.connect(self.normToggled)
         self.menu.addAction(self.normAction)
-        self.exportAction = QtGui.QAction(translate("ImageView", "Export"), self.menu)
+        self.exportAction = QtGui.QAction("Export", self.menu)
         self.exportAction.triggered.connect(self.exportClicked)
         self.menu.addAction(self.exportAction)
         

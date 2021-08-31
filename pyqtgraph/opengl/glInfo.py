@@ -1,12 +1,16 @@
-from ..Qt import QtWidgets
+from ..Qt import QtCore, QtGui, QtOpenGL
 from OpenGL.GL import *
+app = QtGui.QApplication([])
 
-class GLTest(QtWidgets.QOpenGLWidget):
-    def initializeGL(self):
+class GLTest(QtOpenGL.QGLWidget):
+    def __init__(self):
+        QtOpenGL.QGLWidget.__init__(self)
+        self.makeCurrent()
         print("GL version:" + glGetString(GL_VERSION).decode("utf-8"))
         print("MAX_TEXTURE_SIZE: %d" % glGetIntegerv(GL_MAX_TEXTURE_SIZE))
         print("MAX_3D_TEXTURE_SIZE: %d" % glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE))
         print("Extensions: " + glGetString(GL_EXTENSIONS).decode("utf-8").replace(" ", "\n"))
 
-app = QtWidgets.QApplication([])
-GLTest().show()
+GLTest()
+
+

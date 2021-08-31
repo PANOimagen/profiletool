@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from ..Qt import QtGui, QtCore, QtWidgets, QT_LIB
+from ..Qt import QtGui, QtCore
 from .GraphicsView import GraphicsView
 from ..graphicsItems.GradientEditorItem import GradientEditorItem
 import weakref
@@ -40,18 +40,7 @@ class GradientWidget(GraphicsView):
         self.setOrientation(orientation)
         self.setCacheMode(self.CacheNone)
         self.setRenderHints(QtGui.QPainter.Antialiasing | QtGui.QPainter.TextAntialiasing)
-
-        if QT_LIB == 'PyQt6':
-            # PyQt6 doesn't allow or-ing of different enum types
-            # so we need to take its value property
-            NoFrame = QtWidgets.QFrame.Shape.NoFrame.value
-            Plain = QtWidgets.QFrame.Shadow.Plain.value
-        else:
-            NoFrame = QtWidgets.QFrame.NoFrame
-            Plain = QtWidgets.QFrame.Plain
-        frame_style = NoFrame | Plain
-
-        self.setFrameStyle(frame_style)
+        self.setFrameStyle(QtGui.QFrame.NoFrame | QtGui.QFrame.Plain)
         #self.setBackgroundRole(QtGui.QPalette.NoRole)
         #self.setBackgroundBrush(QtGui.QBrush(QtCore.Qt.NoBrush))
         #self.setAutoFillBackground(False)

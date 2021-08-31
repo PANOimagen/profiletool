@@ -6,7 +6,7 @@ except ImportError:
     import pickle
 
 from .remoteproxy import RemoteEventHandler, ClosedError, NoResultError, LocalObjectProxy, ObjectProxy
-from ..Qt import QT_LIB, mkQApp
+from ..Qt import QT_LIB
 from ..util import cprint  # color printing for debugging
 
 
@@ -451,7 +451,7 @@ def startQtEventLoop(name, port, authkey, ppid, debug=False):
     app = QtGui.QApplication.instance()
     #print app
     if app is None:
-        app = mkQApp()
+        app = QtGui.QApplication([])
         app.setQuitOnLastWindowClosed(False)  ## generally we want the event loop to stay open 
                                               ## until it is explicitly closed by the parent process.
     

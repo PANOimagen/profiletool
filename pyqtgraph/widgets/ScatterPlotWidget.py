@@ -7,7 +7,7 @@ from .. import functions as fn
 from .. import getConfigOption
 from ..graphicsItems.TextItem import TextItem
 import numpy as np
-from collections import OrderedDict
+from ..pgcollections import OrderedDict
 
 __all__ = ['ScatterPlotWidget']
 

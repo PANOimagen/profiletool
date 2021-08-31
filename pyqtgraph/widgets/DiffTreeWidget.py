@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from ..Qt import QtGui, QtCore
-from collections import OrderedDict
+from ..pgcollections import OrderedDict
 from .DataTreeWidget import DataTreeWidget
 from .. import functions as fn
 import types, traceback

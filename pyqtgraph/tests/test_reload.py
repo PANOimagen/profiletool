@@ -1,7 +1,6 @@
 import tempfile, os, sys, shutil, time
 import pyqtgraph as pg
 import pyqtgraph.reload
-import pytest
 
 
 pgpath = os.path.join(os.path.dirname(pg.__file__), '..')
@@ -42,14 +41,7 @@ def remove_cache(mod):
     if os.path.isdir(cachedir):
         shutil.rmtree(cachedir)
 
-@pytest.mark.skipif(
-    (
-        (pg.Qt.QT_LIB == "PySide2" and pg.Qt.QtVersion.startswith("5.15"))
-        or (pg.Qt.QT_LIB == "PySide6")
-    ) and (sys.version_info > (3, 9))
-    or (sys.version_info >= (3, 10)),
-    reason="Unknown Issue"
-)
+
 def test_reload():
     py3 = sys.version_info >= (3,)
 

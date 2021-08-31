@@ -77,6 +77,7 @@ class SpinBox(QtGui.QAbstractSpinBox):
             'step': D('0.01'),  ## if 'dec' is false, the spinBox steps by 'step' every time
                                 ## if 'dec' is True, the step size is relative to the value
                                 ## 'step' needs to be an integral divisor of ten, ie 'step'*n=10 for some integer value of n (but only if dec is True)
+            'log': False,   # deprecated
             'dec': False,   ## if true, does decimal stepping. ie from 1-10 it steps by 'step', from 10 to 100 it steps by 10*'step', etc. 
                             ## if true, minStep must be set in order to cross zero.
             
@@ -112,6 +113,12 @@ class SpinBox(QtGui.QAbstractSpinBox):
         
         self.editingFinished.connect(self.editingFinishedEvent)
 
+    def event(self, ev):
+        ret = QtGui.QAbstractSpinBox.event(self, ev)
+        if ev.type() == QtCore.QEvent.KeyPress and ev.key() == QtCore.Qt.Key_Return:
+            ret = True  ## For some reason, spinbox pretends to ignore return key press
+        return ret
+        
     def setOpts(self, **opts):
         """Set options affecting the behavior of the SpinBox.
         
@@ -125,10 +132,8 @@ class SpinBox(QtGui.QAbstractSpinBox):
         siPrefix       (bool) If True, then an SI prefix is automatically prepended
                        to the units and the value is scaled accordingly. For example,
                        if value=0.003 and suffix='V', then the SpinBox will display
-                       "300 mV" (but a call to SpinBox.value will still return 0.003). In case
-                       the value represents a dimensionless quantity that might span many
-                       orders of magnitude, such as a Reynolds number, an SI
-                       prefix is allowed with no suffix. Default is False.
+                       "300 mV" (but a call to SpinBox.value will still return 0.003). Default
+                       is False.
         step           (float) The size of a single step. This is used when clicking the up/
                        down arrows, when rolling the mouse wheel, or when pressing 
                        keyboard arrows while the widget has keyboard focus. Note that
@@ -220,9 +225,6 @@ class SpinBox(QtGui.QAbstractSpinBox):
                 if ms < 1:
                     ms = 1
                 self.opts['minStep'] = ms
-
-            if 'format' not in opts:
-                self.opts['format'] = asUnicode("{value:d}{suffixGap}{suffix}")
         
         if 'delay' in opts:
             self.proxy.setDelay(opts['delay'])
@@ -358,9 +360,10 @@ class SpinBox(QtGui.QAbstractSpinBox):
         if not isinstance(value, D):
             value = D(asUnicode(value))
 
-        prev, self.val = self.val, value
-        changed = not fn.eq(value, prev)  # use fn.eq to handle nan
-
+        changed = value != self.val
+        prev = self.val
+        
+        self.val = value
         if update and (changed or not bounded):
             self.updateText(prev=prev)
 
@@ -378,7 +381,7 @@ class SpinBox(QtGui.QAbstractSpinBox):
     
     def delayedChange(self):
         try:
-            if not fn.eq(self.val, self.lastValEmitted):  # use fn.eq to handle nan
+            if self.val != self.lastValEmitted:
                 self.emitChanged()
         except RuntimeError:
             pass  ## This can happen if we try to handle a delayed signal after someone else has already deleted the underlying C++ object.
@@ -401,6 +404,13 @@ class SpinBox(QtGui.QAbstractSpinBox):
         val = self.val
         
         for i in range(int(abs(n))):
+            
+            if self.opts['log']:
+                raise Exception("Log mode no longer supported.")
+            #    step = abs(val) * self.opts['step']
+            #    if 'minStep' in self.opts:
+            #        step = max(step, self.opts['minStep'])
+            #    val += step * s
             if self.opts['dec']:
                 if val == 0:
                     step = self.opts['minStep']
@@ -454,7 +464,7 @@ class SpinBox(QtGui.QAbstractSpinBox):
 
         # format the string 
         val = self.value()
-        if self.opts['siPrefix'] is True:
+        if self.opts['siPrefix'] is True and len(self.opts['suffix']) > 0:
             # SI prefix was requested, so scale the value accordingly
 
             if self.val == 0 and prev is not None:
@@ -533,7 +543,7 @@ class SpinBox(QtGui.QAbstractSpinBox):
             return False
             
         # check suffix
-        if suffix != self.opts['suffix']:
+        if suffix != self.opts['suffix'] or (suffix == '' and siprefix != ''):
             return False
            
         # generate value
@@ -586,7 +596,7 @@ class SpinBox(QtGui.QAbstractSpinBox):
 
     def paintEvent(self, ev):
         self._updateHeight()
-        super().paintEvent(ev)
+        QtGui.QAbstractSpinBox.paintEvent(self, ev)
 
 
 class ErrorBox(QtGui.QWidget):

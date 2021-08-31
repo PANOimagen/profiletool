@@ -1,3 +1,4 @@
+import gc
 import weakref
 try:
     import faulthandler
@@ -15,6 +16,7 @@ def test_getViewWidget():
     view.addItem(item)
     assert item.getViewWidget() is view
     del view
+    gc.collect()
     assert vref() is None
     assert item.getViewWidget() is None
 
@@ -28,6 +30,7 @@ def test_getViewWidget_deleted():
     obj = pg.QtGui.QWidget()
     view.setParent(obj)
     del obj
+    gc.collect()
 
     assert not pg.Qt.isQObjectAlive(view)
     assert item.getViewWidget() is None
