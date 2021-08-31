@@ -14,7 +14,6 @@ import types, copy, threading, os, re
 import pickle
 import numpy as np
 from ..python2_3 import basestring
-import warnings
 
 
 ## By default, the library will use HDF5 when writing files.
@@ -321,11 +320,7 @@ class MetaArray(object):
             return self.asarray().astype(dtype)
             
     def view(self, typ):
-        warnings.warn(
-            'MetaArray.view is deprecated and will be removed in 0.13. '
-            'Use MetaArray.asarray() instead.',
-            DeprecationWarning, stacklevel=2
-        )    
+        ## deprecated; kept for backward compatibility
         if typ is np.ndarray:
             return self.asarray()
         else:

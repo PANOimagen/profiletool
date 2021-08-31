@@ -8,7 +8,6 @@ import re
 import xml.dom.minidom as xml
 import numpy as np
 
-translate = QtCore.QCoreApplication.translate
 
 __all__ = ['SVGExporter']
 
@@ -30,14 +29,12 @@ class SVGExporter(Exporter):
             bg.setAlpha(0)
 
         self.params = Parameter(name='params', type='group', children=[
-            {'name': 'background', 'title': translate("Exporter", 'background'), 'type': 'color', 'value': bg},
-            {'name': 'width', 'title': translate("Exporter", 'width'), 'type': 'float', 'value': tr.width(),
-             'limits': (0, None)},
-            {'name': 'height', 'title': translate("Exporter", 'height'), 'type': 'float', 'value': tr.height(),
-             'limits': (0, None)},
+            {'name': 'background', 'type': 'color', 'value': bg},
+            {'name': 'width', 'type': 'float', 'value': tr.width(), 'limits': (0, None)},
+            {'name': 'height', 'type': 'float', 'value': tr.height(), 'limits': (0, None)},
             #{'name': 'viewbox clipping', 'type': 'bool', 'value': True},
             #{'name': 'normalize coordinates', 'type': 'bool', 'value': True},
-            {'name': 'scaling stroke', 'title': translate("Exporter", 'scaling stroke'), 'type': 'bool', 'value': False, 'tip': "If False, strokes are non-scaling, "
+            {'name': 'scaling stroke', 'type': 'bool', 'value': False, 'tip': "If False, strokes are non-scaling, "
              "which means that they appear the same width on screen regardless of how they are scaled or how the view is zoomed."},
         ])
         self.params.param('width').sigValueChanged.connect(self.widthChanged)
@@ -58,7 +55,7 @@ class SVGExporter(Exporter):
     
     def export(self, fileName=None, toBytes=False, copy=False):
         if toBytes is False and copy is False and fileName is None:
-            self.fileSaveDialog(filter=f"{translate('Exporter', 'Scalable Vector Graphics')} (*.svg)")
+            self.fileSaveDialog(filter="Scalable Vector Graphics (*.svg)")
             return
         
         ## Qt's SVG generator is not complete. (notably, it lacks clipping)
@@ -129,9 +126,9 @@ def _generateItemSvg(item, nodes=None, root=None, options={}):
     ## 1) Qt SVG does not implement clipping paths. This is absurd.
     ##    The solution is to let Qt generate SVG for each item independently,
     ##    then glue them together manually with clipping.
-    ##
+    ##    
     ##    The format Qt generates for all items looks like this:
-    ##
+    ##    
     ##    <g>
     ##        <g transform="matrix(...)">
     ##            one or more of: <path/> or <polyline/> or <text/>
@@ -141,21 +138,21 @@ def _generateItemSvg(item, nodes=None, root=None, options={}):
     ##        </g>
     ##        . . .
     ##    </g>
-    ##
+    ##    
     ## 2) There seems to be wide disagreement over whether path strokes
-    ##    should be scaled anisotropically.
+    ##    should be scaled anisotropically. 
     ##      see: http://web.mit.edu/jonas/www/anisotropy/
     ##    Given that both inkscape and illustrator seem to prefer isotropic
-    ##    scaling, we will optimize for those cases.
-    ##
-    ## 3) Qt generates paths using non-scaling-stroke from SVG 1.2, but
-    ##    inkscape only supports 1.1.
-    ##
+    ##    scaling, we will optimize for those cases.  
+    ##    
+    ## 3) Qt generates paths using non-scaling-stroke from SVG 1.2, but 
+    ##    inkscape only supports 1.1. 
+    ##    
     ##    Both 2 and 3 can be addressed by drawing all items in world coordinates.
     
     profiler = debug.Profiler()
     
-    if nodes is None:  ## nodes maps all node IDs to their XML element.
+    if nodes is None:  ## nodes maps all node IDs to their XML element. 
                        ## this allows us to ensure all elements receive unique names.
         nodes = {}
         
@@ -198,8 +195,8 @@ def _generateItemSvg(item, nodes=None, root=None, options={}):
         buf = QtCore.QBuffer(arr)
         svg = QtSvg.QSvgGenerator()
         svg.setOutputDevice(buf)
-        dpi = QtGui.QGuiApplication.primaryScreen().logicalDotsPerInchX()
-        svg.setResolution(int(dpi))
+        dpi = QtGui.QDesktopWidget().logicalDpiX()
+        svg.setResolution(dpi)
 
         p = QtGui.QPainter()
         p.begin(svg)
@@ -254,7 +251,7 @@ def _generateItemSvg(item, nodes=None, root=None, options={}):
     childGroup = g1  ## add children directly to this node unless we are clipping
     if not isinstance(item, QtGui.QGraphicsScene):
         ## See if this item clips its children
-        if item.flags() & item.ItemClipsChildrenToShape:
+        if int(item.flags() & item.ItemClipsChildrenToShape) > 0:
             ## Generate svg for just the path
             path = QtGui.QGraphicsPathItem(item.mapToScene(item.shape()))
             item.scene().addItem(path)
@@ -380,11 +377,11 @@ def correctCoordinates(node, defs, item, options):
                 families = ch.getAttribute('font-family').split(',')
                 if len(families) == 1:
                     font = QtGui.QFont(families[0].strip('" '))
-                    if font.styleHint() == font.StyleHint.SansSerif:
+                    if font.style() == font.SansSerif:
                         families.append('sans-serif')
-                    elif font.styleHint() == font.StyleHint.Serif:
+                    elif font.style() == font.Serif:
                         families.append('serif')
-                    elif font.styleHint() == font.StyleHint.Courier:
+                    elif font.style() == font.Courier:
                         families.append('monospace')
                     ch.setAttribute('font-family', ', '.join([f if ' ' not in f else '"%s"'%f for f in families]))
                 
@@ -417,7 +414,7 @@ def itemTransform(item, root):
         return tr
         
     
-    if item.flags() & item.ItemIgnoresTransformations:
+    if int(item.flags() & item.ItemIgnoresTransformations) > 0:
         pos = item.pos()
         parent = item.parentItem()
         if parent is not None:
@@ -426,7 +423,7 @@ def itemTransform(item, root):
         tr.translate(pos.x(), pos.y())
         tr = item.transform() * tr
     else:
-        ## find next parent that is either the root item or
+        ## find next parent that is either the root item or 
         ## an item that ignores its transformation
         nextRoot = item
         while True:
@@ -434,7 +431,7 @@ def itemTransform(item, root):
             if nextRoot is None:
                 nextRoot = root
                 break
-            if nextRoot is root or (nextRoot.flags() & nextRoot.ItemIgnoresTransformations):
+            if nextRoot is root or int(nextRoot.flags() & nextRoot.ItemIgnoresTransformations) > 0:
                 break
         
         if isinstance(nextRoot, QtGui.QGraphicsScene):

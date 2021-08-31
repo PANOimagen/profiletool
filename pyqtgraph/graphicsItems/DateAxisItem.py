@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timedelta
 
 from .AxisItem import AxisItem
-from collections import OrderedDict
+from ..pgcollections import OrderedDict
 
 __all__ = ['DateAxisItem']
 
@@ -108,7 +108,7 @@ class TickSpec:
     def skipFactor(self, minSpc):
         if self.autoSkip is None or minSpc < self.spacing:
             return 1
-        factors = np.array(self.autoSkip, dtype=np.float64)
+        factors = np.array(self.autoSkip, dtype=np.float)
         while True:
             for f in factors:
                 spc = self.spacing * f
@@ -185,17 +185,6 @@ MS_ZOOM_LEVEL = ZoomLevel([
              autoSkip=[1, 5, 10, 25])
 ], "99:99:99")
 
-
-def getOffsetFromUtc():
-    """Retrieve the utc offset respecting the daylight saving time"""
-    ts = time.localtime()
-    if ts.tm_isdst:
-        utc_offset = time.altzone
-    else:
-        utc_offset = time.timezone
-    return utc_offset
-
-
 class DateAxisItem(AxisItem):
     """
     **Bases:** :class:`AxisItem <pyqtgraph.AxisItem>`
@@ -211,7 +200,7 @@ class DateAxisItem(AxisItem):
 
     """
 
-    def __init__(self, orientation='bottom', utcOffset=None, **kwargs):
+    def __init__(self, orientation='bottom', utcOffset=time.timezone, **kwargs):
         """
         Create a new DateAxisItem.
         
@@ -222,8 +211,6 @@ class DateAxisItem(AxisItem):
 
         super(DateAxisItem, self).__init__(orientation, **kwargs)
         # Set the zoom level to use depending on the time density on the axis
-        if utcOffset is None:
-            utcOffset = getOffsetFromUtc()
         self.utcOffset = utcOffset
         
         self.zoomLevels = OrderedDict([
@@ -282,10 +269,10 @@ class DateAxisItem(AxisItem):
         # Size in pixels a specific tick label will take
         if self.orientation in ['bottom', 'top']:
             def sizeOf(text):
-                return self.fontMetrics.boundingRect(text).width() + padding
+                return self.fontMetrics.boundingRect(text).width() + padding*self.fontScaleFactor
         else:
             def sizeOf(text):
-                return self.fontMetrics.boundingRect(text).height() + padding
+                return self.fontMetrics.boundingRect(text).height() + padding*self.fontScaleFactor
         
         # Fallback zoom level: Years/Months
         self.zoomLevel = YEAR_MONTH_ZOOM_LEVEL
@@ -327,5 +314,6 @@ class DateAxisItem(AxisItem):
         self.fontMetrics = p.fontMetrics()
         
         # Get font scale factor by current window resolution
+        self.fontScaleFactor = p.device().logicalDpiX() / 96
         
         return super(DateAxisItem, self).generateDrawSpecs(p)

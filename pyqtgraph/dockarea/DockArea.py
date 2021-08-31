@@ -382,4 +382,4 @@ class TempAreaWindow(QtGui.QWidget):
                 dock.orig_area.addDock(dock, )
         # clear dock area, and close remaining docks
         self.dockarea.clear()
-        super().closeEvent(*args)
+        QtGui.QWidget.closeEvent(self, *args)

@@ -58,7 +58,7 @@ class ValueLabel(QtGui.QLabel):
         
     def paintEvent(self, ev):
         self.setText(self.generateText())
-        return super().paintEvent(ev)
+        return QtGui.QLabel.paintEvent(self, ev)
         
     def generateText(self):
         if len(self.values) == 0:

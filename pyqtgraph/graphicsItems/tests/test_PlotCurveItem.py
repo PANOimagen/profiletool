@@ -4,11 +4,10 @@ from pyqtgraph.tests import assertImageApproved
 
 
 def test_PlotCurveItem():
-    p = pg.GraphicsLayoutWidget()
-    p.resize(200, 150)
-    p.ci.setContentsMargins(4, 4, 4, 4)  # default margins vary by platform
-    p.show()
+    p = pg.GraphicsWindow()
+    p.ci.layout.setContentsMargins(4, 4, 4, 4)  # default margins vary by platform
     v = p.addViewBox()
+    p.resize(200, 150)
     data = np.array([1,4,2,3,np.inf,5,7,6,-np.inf,8,10,9,np.nan,-1,-2,0])
     c = pg.PlotCurveItem(data)
     v.addItem(c)

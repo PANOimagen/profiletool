@@ -32,7 +32,7 @@ class PathButton(QtGui.QPushButton):
         self.update()
         
     def paintEvent(self, ev):
-        super().paintEvent(ev)
+        QtGui.QPushButton.paintEvent(self, ev)
         margin = self.margin
         geom = QtCore.QRectF(0, 0, self.width(), self.height()).adjusted(margin, margin, -margin, -margin)
         rect = self.path.boundingRect()

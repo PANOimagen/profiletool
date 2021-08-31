@@ -1,16 +1,13 @@
 from .. import mkQApp
-from ..Qt import QtGui
 
 def test_screenInformation():
-    # a qApp is still needed, otherwise screen is None
     qApp = mkQApp()
-    screen = QtGui.QGuiApplication.primaryScreen()
-    screens = QtGui.QGuiApplication.screens()
-    resolution = screen.size()
-    availableResolution = screen.availableSize()
+    desktop = qApp.desktop()
+    resolution = desktop.screenGeometry()
+    availableResolution = desktop.availableGeometry()
     print("Screen resolution: {}x{}".format(resolution.width(), resolution.height()))
     print("Available geometry: {}x{}".format(availableResolution.width(), availableResolution.height()))
-    print("Number of Screens: {}".format(len(screens)))
+    print("Number of Screens: {}".format(desktop.screenCount()))
     return None
 
 

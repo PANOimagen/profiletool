@@ -128,8 +128,7 @@ class Exporter(object):
         while len(childs) > 0:
             ch = childs.pop(0)
             tree = self.getPaintItems(ch)
-            if (ch.flags() & ch.ItemStacksBehindParent) or \
-               (ch.zValue() < 0 and (ch.flags() & ch.ItemNegativeZStacksBehindParent)):
+            if int(ch.flags() & ch.ItemStacksBehindParent) > 0 or (ch.zValue() < 0 and int(ch.flags() & ch.ItemNegativeZStacksBehindParent) > 0):
                 preItems.extend(tree)
             else:
                 postItems.extend(tree)

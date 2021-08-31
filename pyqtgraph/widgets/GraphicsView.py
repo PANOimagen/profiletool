@@ -5,9 +5,17 @@ Copyright 2010  Luke Campagnola
 Distributed under MIT/X11 license. See license.txt for more information.
 """
 
-from ..Qt import QtCore, QtGui, QtWidgets, QT_LIB
+from ..Qt import QtCore, QtGui, QT_LIB
+
+try:
+    from ..Qt import QtOpenGL
+    HAVE_OPENGL = True
+except ImportError:
+    HAVE_OPENGL = False
+
 from ..Point import Point
 import sys, os
+import warnings
 from .FileDialog import FileDialog
 from ..GraphicsScene import GraphicsScene
 import numpy as np
@@ -16,7 +24,6 @@ from .. import debug as debug
 from .. import getConfigOption
 
 __all__ = ['GraphicsView']
-
 
 class GraphicsView(QtGui.QGraphicsView):
     """Re-implementation of QGraphicsView that removes scrollbars and allows unambiguous control of the 
@@ -50,7 +57,7 @@ class GraphicsView(QtGui.QGraphicsView):
         useOpenGL       If True, the GraphicsView will use OpenGL to do all of its
                         rendering. This can improve performance on some systems,
                         but may also introduce bugs (the combination of 
-                        QGraphicsView and QOpenGLWidget is still an 'experimental'
+                        QGraphicsView and QGLWidget is still an 'experimental' 
                         feature of Qt)
         background      Set the background color of the GraphicsView. Accepts any
                         single argument accepted by 
@@ -123,6 +130,12 @@ class GraphicsView(QtGui.QGraphicsView):
         self.scaleCenter = False  ## should scaling center around view center (True) or mouse click (False)
         self.clickAccepted = False
 
+        # Set a transparent background QPalette!
+        if QT_LIB in ["PySide2", "PyQt5"]:
+            palette = self.palette()
+            palette.setColor(QtGui.QPalette.Background, QtCore.Qt.transparent)
+            self.setPalette(palette)
+
     def setAntialiasing(self, aa):
         """Enable or disable default antialiasing.
         Note that this will only affect items that do not specify their own antialiasing options."""
@@ -145,11 +158,11 @@ class GraphicsView(QtGui.QGraphicsView):
     
     def paintEvent(self, ev):
         self.scene().prepareForPaint()
-        return super().paintEvent(ev)
+        return QtGui.QGraphicsView.paintEvent(self, ev)
     
     def render(self, *args, **kwds):
         self.scene().prepareForPaint()
-        return super().render(*args, **kwds)
+        return QtGui.QGraphicsView.render(self, *args, **kwds)
         
     
     def close(self):
@@ -163,11 +176,9 @@ class GraphicsView(QtGui.QGraphicsView):
 
     def useOpenGL(self, b=True):
         if b:
-            HAVE_OPENGL = hasattr(QtWidgets, 'QOpenGLWidget')
             if not HAVE_OPENGL:
-                raise Exception("Requested to use OpenGL with QGraphicsView, but QOpenGLWidget is not available.")
-
-            v = QtWidgets.QOpenGLWidget()
+                raise Exception("Requested to use OpenGL with QGraphicsView, but QtOpenGL module is not available.")
+            v = QtOpenGL.QGLWidget()
         else:
             v = QtGui.QWidget()
             
@@ -318,9 +329,10 @@ class GraphicsView(QtGui.QGraphicsView):
         GraphicsView.setRange(self, r1, padding=[0, padding], propagate=False)
         
     def wheelEvent(self, ev):
-        super().wheelEvent(ev)
+        QtGui.QGraphicsView.wheelEvent(self, ev)
         if not self.mouseEnabled:
             return
+        
         delta = 0
         if QT_LIB in ['PyQt4', 'PySide']:
             delta = ev.delta()
@@ -341,21 +353,20 @@ class GraphicsView(QtGui.QGraphicsView):
         self.scene().leaveEvent(ev)  ## inform scene when mouse leaves
         
     def mousePressEvent(self, ev):
-        super().mousePressEvent(ev)
+        QtGui.QGraphicsView.mousePressEvent(self, ev)
         
 
         if not self.mouseEnabled:
             return
-        lpos = ev.localPos()
-        self.lastMousePos = lpos
-        self.mousePressPos = lpos
+        self.lastMousePos = Point(ev.pos())
+        self.mousePressPos = ev.pos()
         self.clickAccepted = ev.isAccepted()
         if not self.clickAccepted:
             self.scene().clearSelection()
         return   ## Everything below disabled for now..
         
     def mouseReleaseEvent(self, ev):
-        super().mouseReleaseEvent(ev)
+        QtGui.QGraphicsView.mouseReleaseEvent(self, ev)
         if not self.mouseEnabled:
             return 
         self.sigMouseReleased.emit(ev)
@@ -363,16 +374,15 @@ class GraphicsView(QtGui.QGraphicsView):
         return   ## Everything below disabled for now..
         
     def mouseMoveEvent(self, ev):
-        lpos = ev.localPos()
         if self.lastMousePos is None:
-            self.lastMousePos = lpos
-        delta = Point(lpos - self.lastMousePos)
-        self.lastMousePos = lpos
+            self.lastMousePos = Point(ev.pos())
+        delta = Point(ev.pos() - self.lastMousePos.toQPoint())
+        self.lastMousePos = Point(ev.pos())
 
-        super().mouseMoveEvent(ev)
+        QtGui.QGraphicsView.mouseMoveEvent(self, ev)
         if not self.mouseEnabled:
             return
-        self.sigSceneMouseMoved.emit(self.mapToScene(lpos))
+        self.sigSceneMouseMoved.emit(self.mapToScene(ev.pos()))
             
         if self.clickAccepted:  ## Ignore event if an item in the scene has already claimed it.
             return
@@ -383,7 +393,7 @@ class GraphicsView(QtGui.QGraphicsView):
             self.scale(scale[0], scale[1], center=self.mapToScene(self.mousePressPos))
             self.sigDeviceRangeChanged.emit(self, self.range)
 
-        elif ev.buttons() in [QtCore.Qt.MiddleButton, QtCore.Qt.LeftButton]:  ## Allow panning by left or mid button.
+        elif ev.buttons() in [QtCore.Qt.MidButton, QtCore.Qt.LeftButton]:  ## Allow panning by left or mid button.
             px = self.pixelSize()
             tr = -delta * px
             
@@ -401,3 +411,18 @@ class GraphicsView(QtGui.QGraphicsView):
         
     def dragEnterEvent(self, ev):
         ev.ignore()  ## not sure why, but for some reason this class likes to consume drag events
+
+    def _del(self):
+        try:
+            if self.parentWidget() is None and self.isVisible():
+                msg = "Visible window deleted. To prevent this, store a reference to the window object."
+                try:
+                    warnings.warn(msg, RuntimeWarning, stacklevel=2)
+                except TypeError:
+                    # warnings module not available during interpreter shutdown
+                    pass
+        except RuntimeError:
+            pass
+
+if sys.version_info[0] == 3 and sys.version_info[1] >= 4:
+    GraphicsView.__del__ = GraphicsView._del
