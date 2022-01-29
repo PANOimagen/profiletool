@@ -379,7 +379,7 @@ class PlotItem(GraphicsWidget):
             self.ctrl.yGridCheck.setChecked(y)
         if alpha is not None:
             v = np.clip(alpha, 0, 1)*self.ctrl.gridAlphaSlider.maximum()
-            self.ctrl.gridAlphaSlider.setValue(v)
+            self.ctrl.gridAlphaSlider.setValue( int(v) )
         
     def close(self):
         ## Most of this crap is needed to avoid PySide trouble. 
