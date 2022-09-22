@@ -94,7 +94,7 @@ class PTDockWidget(QDockWidget, FormClass):
         hh = self.tableView.horizontalHeader()
         hh.setStretchLastSection(True)
         self.tableView.setColumnHidden(5, True)
-        self.mdl.setHorizontalHeaderLabels(["", "", "Layer", "Band/Field", "Search buffer"])
+        self.mdl.setHorizontalHeaderLabels(["", "", self.tr("Layer"), self.tr("Band/Field"), self.tr("Search buffer")])
         self.tableViewTool = TableViewTool()
 
         # other
