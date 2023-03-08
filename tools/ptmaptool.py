@@ -45,8 +45,7 @@ class ProfiletoolMapToolRenderer:
         self.pointstoDraw = []  # Polyline being drawn in freehand mode
         self.dblclktemp = None  # enable disctinction between leftclick and doubleclick
         # the rubberband
-        self.polygon = False
-        self.rubberband = QgsRubberBand(self.iface.mapCanvas(), self.polygon)
+        self.rubberband = QgsRubberBand(self.iface.mapCanvas(), QgsWkbTypes.LineGeometry)
         self.rubberband.setWidth(2)
         self.rubberband.setColor(QColor(Qt.red))
 
@@ -67,14 +66,7 @@ class ProfiletoolMapToolRenderer:
         self.setSelectionMethod(0)
 
     def resetRubberBand(self):
-        # TODO: use version check for qgis3 too.
-        try:  # qgis2
-            if QGis.QGIS_VERSION_INT >= 10900:
-                self.rubberband.reset(QGis.Line)
-            else:
-                self.rubberband.reset(self.polygon)
-        except:  # qgis3
-            self.rubberband.reset(qgis.core.QgsWkbTypes.LineGeometry)
+        self.rubberband.reset(QgsWkbTypes.LineGeometry)
 
     # ************************************* Mouse listener actions ***********************************************
 
