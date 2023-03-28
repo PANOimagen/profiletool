@@ -49,7 +49,7 @@ class ProfilePlugin:
         # initialize plugin directory
         self.plugin_dir = path.dirname(__file__)
         # initialize locale
-        locale = QgsSettings().value('locale/userLocale')[0:2]
+        locale = QgsSettings().value("locale/userLocale", "en_US")[0:2]
         locale_path = path.join(self.plugin_dir,'i18n','profiletool_{}.qm'.format(locale))
 
         if path.exists(locale_path):
