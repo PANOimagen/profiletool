@@ -50,7 +50,7 @@ class ProfilePlugin:
         self.plugin_dir = path.dirname(__file__)
         # initialize locale
         locale = QgsSettings().value("locale/userLocale", "en_US")[0:2]
-        locale_path = path.join(self.plugin_dir,'i18n','profiletool_{}.qm'.format(locale))
+        locale_path = path.join(self.plugin_dir, "i18n", f"profiletool_{locale}.qm")
 
         if path.exists(locale_path):
             self.translator = QTranslator()
