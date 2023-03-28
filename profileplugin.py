@@ -36,15 +36,27 @@ try:
 except:
     pass
 
-
 from . import resources
 from .tools.profiletool_core import ProfileToolCore
-
+from os import path
 
 class ProfilePlugin:
     def __init__(self, iface):
         self.iface = iface
         self.canvas = iface.mapCanvas()
+
+        # translation
+        # initialize plugin directory
+        self.plugin_dir = path.dirname(__file__)
+        # initialize locale
+        locale = QgsSettings().value("locale/userLocale", "en_US")[0:2]
+        locale_path = path.join(self.plugin_dir, "i18n", f"profiletool_{locale}.qm")
+
+        if path.exists(locale_path):
+            self.translator = QTranslator()
+            self.translator.load(locale_path)
+            QCoreApplication.installTranslator(self.translator)
+
         self.profiletool = None
         self.dockOpened = False  # remember for not reopening dock if there's already one opened
         # self.wdg = None
@@ -55,9 +67,9 @@ class ProfilePlugin:
     def initGui(self):
         # create action
         self.action = QAction(
-            QIcon(":/plugins/profiletool/icons/profileIcon.png"), "Terrain profile", self.iface.mainWindow()
+            QIcon(":/plugins/profiletool/icons/profileIcon.png"), self.tr("Terrain profile"), self.iface.mainWindow()
         )
-        self.action.setWhatsThis("Plots terrain profiles")
+        self.action.setWhatsThis(self.tr("Plots terrain profiles"))
         self.action.triggered.connect(self.run)
         self.aboutAction = QAction("About", self.iface.mainWindow())
         self.aboutAction.triggered.connect(self.about)
@@ -80,6 +92,9 @@ class ProfilePlugin:
         self.iface.removeToolBarIcon(self.action)
         self.iface.removePluginMenu("&Profile Tool", self.action)
         self.iface.removePluginMenu("&Profile Tool", self.aboutAction)
+
+    def tr(self, message):
+        return QCoreApplication.translate("ProfilePlugin", message)
 
     def run(self):
 
