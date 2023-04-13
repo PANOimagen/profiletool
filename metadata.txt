@@ -5,11 +5,12 @@ qgisMaximumVersion=3.99
 description=Plots terrain profile
 about=This tool plots profile lines from raster layers or point vector layer with elevation field. Supports multiple lines as well as graph export to svg, pdf, png or csv file. Supports 3D polyline export to dxf. 
 category=Raster
-version=4.2.4
+version=4.2.5
 author=Borys Jurgiel - Patrice Verchere - Etienne Tourigny - Javier Becerra
 email=javier@panoimagen.com
 
 changelog=
+    4.2.5 : Fix for Python 3.11 (#84 Thanks @JaviBecerra)
     4.2.4 : Add german translation (#80 Thanks @Brigggi)
     4.2.3 : Fix for QGIS 3.30
     4.2.2 : Fix TypeError in pyqtgraph with Python 3.10 (Thanks @luca-penasa)
