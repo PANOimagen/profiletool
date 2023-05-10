@@ -41,8 +41,8 @@ def slopes_pct(p):
     Returns the x (distance from origin) and y (slope in percentage)
     coordinates for the plot.
     """
-    x = np.array(p["l"], dtype=np.float)
-    y = np.array(p["z"], dtype=np.float)
+    x = np.array(p["l"], dtype=float)
+    y = np.array(p["z"], dtype=float)
     slope_pct = 100.0 * (y[1:] - y[:-1]) / (x[1:] - x[:-1])
     slope_pct = np.concatenate((slope_pct[0:1], 0.5 * (slope_pct[1:] + slope_pct[:-1]), slope_pct[-1:]))
     slope_pct[np.isnan(slope_pct)] = 0
