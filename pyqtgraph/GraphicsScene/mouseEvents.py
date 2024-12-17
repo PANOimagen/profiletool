@@ -1,7 +1,11 @@
-from ..Point import Point
-from ..Qt import QtCore, QtGui
+__all__ = ["MouseDragEvent", "MouseClickEvent", "HoverEvent"]
+
 import weakref
-from .. import ptime as ptime
+from time import perf_counter
+
+from ..Point import Point
+from ..Qt import QtCore
+
 
 class MouseDragEvent(object):
     """
@@ -18,9 +22,9 @@ class MouseDragEvent(object):
         self.currentItem = None
         self._buttonDownScenePos = {}
         self._buttonDownScreenPos = {}
-        for btn in [QtCore.Qt.LeftButton, QtCore.Qt.MidButton, QtCore.Qt.RightButton]:
-            self._buttonDownScenePos[int(btn)] = moveEvent.buttonDownScenePos(btn)
-            self._buttonDownScreenPos[int(btn)] = moveEvent.buttonDownScreenPos(btn)
+        for btn in [QtCore.Qt.MouseButton.LeftButton, QtCore.Qt.MouseButton.MiddleButton, QtCore.Qt.MouseButton.RightButton]:
+            self._buttonDownScenePos[btn] = moveEvent.buttonDownScenePos(btn)
+            self._buttonDownScreenPos[btn] = moveEvent.buttonDownScreenPos(btn)
         self._scenePos = moveEvent.scenePos()
         self._screenPos = moveEvent.screenPos()
         if lastEvent is None:
@@ -61,7 +65,7 @@ class MouseDragEvent(object):
         """
         if btn is None:
             btn = self.button()
-        return Point(self._buttonDownScenePos[int(btn)])
+        return Point(self._buttonDownScenePos[btn])
     
     def buttonDownScreenPos(self, btn=None):
         """
@@ -70,7 +74,7 @@ class MouseDragEvent(object):
         """
         if btn is None:
             btn = self.button()
-        return Point(self._buttonDownScreenPos[int(btn)])
+        return Point(self._buttonDownScreenPos[btn])
     
     def lastScenePos(self):
         """
@@ -119,7 +123,7 @@ class MouseDragEvent(object):
         """
         if btn is None:
             btn = self.button()
-        return Point(self.currentItem.mapFromScene(self._buttonDownScenePos[int(btn)]))
+        return Point(self.currentItem.mapFromScene(self._buttonDownScenePos[btn]))
     
     def isStart(self):
         """Returns True if this event is the first since a drag was initiated."""
@@ -137,7 +141,7 @@ class MouseDragEvent(object):
         else:
             lp = self.lastPos()
             p = self.pos()
-        return "<MouseDragEvent (%g,%g)->(%g,%g) buttons=%d start=%s finish=%s>" % (lp.x(), lp.y(), p.x(), p.y(), int(self.buttons()), str(self.isStart()), str(self.isFinish()))
+        return "<MouseDragEvent (%g,%g)->(%g,%g) buttons=%s start=%s finish=%s>" % (lp.x(), lp.y(), p.x(), p.y(), str(self.buttons()), str(self.isStart()), str(self.isFinish()))
         
     def modifiers(self):
         """Return any keyboard modifiers currently pressed.
@@ -164,7 +168,7 @@ class MouseClickEvent(object):
         self._button = pressEvent.button()
         self._buttons = pressEvent.buttons()
         self._modifiers = pressEvent.modifiers()
-        self._time = ptime.time()
+        self._time = perf_counter()
         self.acceptedItem = None
         
     def accept(self):
@@ -230,9 +234,9 @@ class MouseClickEvent(object):
                 p = self._scenePos
             else:
                 p = self.pos()
-            return "<MouseClickEvent (%g,%g) button=%d>" % (p.x(), p.y(), int(self.button()))
+            return "<MouseClickEvent (%g,%g) button=%s>" % (p.x(), p.y(), str(self.button()))
         except:
-            return "<MouseClickEvent button=%d>" % (int(self.button()))
+            return "<MouseClickEvent button=%s>" % (str(self.button()))
 
     def time(self):
         return self._time
@@ -362,7 +366,7 @@ class HoverEvent(object):
         else:
             lp = self.lastPos()
             p = self.pos()
-        return "<HoverEvent (%g,%g)->(%g,%g) buttons=%d enter=%s exit=%s>" % (lp.x(), lp.y(), p.x(), p.y(), int(self.buttons()), str(self.isEnter()), str(self.isExit()))
+        return "<HoverEvent (%g,%g)->(%g,%g) buttons=%s enter=%s exit=%s>" % (lp.x(), lp.y(), p.x(), p.y(), str(self.buttons()), str(self.isEnter()), str(self.isExit()))
         
     def modifiers(self):
         """Return any keyboard modifiers currently pressed.

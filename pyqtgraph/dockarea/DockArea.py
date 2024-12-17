@@ -1,25 +1,24 @@
-# -*- coding: utf-8 -*-
 import weakref
-from ..Qt import QtCore, QtGui
-from .Container import *
-from .DockDrop import *
+
+from ..Qt import QtWidgets
+from .Container import Container, HContainer, TContainer, VContainer
 from .Dock import Dock
-from .. import debug as debug
-from ..python2_3 import basestring
+from .DockDrop import DockDrop
 
 
-class DockArea(Container, QtGui.QWidget, DockDrop):
+class DockArea(Container, QtWidgets.QWidget):
     def __init__(self, parent=None, temporary=False, home=None):
         Container.__init__(self, self)
-        QtGui.QWidget.__init__(self, parent=parent)
-        DockDrop.__init__(self, allowedAreas=['left', 'right', 'top', 'bottom'])
-        self.layout = QtGui.QVBoxLayout()
+        QtWidgets.QWidget.__init__(self, parent=parent)
+        self.dockdrop = DockDrop(self)
+        self.dockdrop.removeAllowedArea('center')
+        self.layout = QtWidgets.QVBoxLayout()
         self.layout.setContentsMargins(0,0,0,0)
         self.layout.setSpacing(0)
         self.setLayout(self.layout)
         self.docks = weakref.WeakValueDictionary()
         self.topContainer = None
-        self.raiseOverlay()
+        self.dockdrop.raiseOverlay()
         self.temporary = temporary
         self.tempAreas = []
         self.home = home
@@ -62,7 +61,7 @@ class DockArea(Container, QtGui.QWidget, DockDrop):
                 container = self.topContainer
                 neighbor = None
         else:
-            if isinstance(relativeTo, basestring):
+            if isinstance(relativeTo, str):
                 relativeTo = self.docks[relativeTo]
             container = self.getContainer(relativeTo)
             if container is None:
@@ -131,6 +130,8 @@ class DockArea(Container, QtGui.QWidget, DockDrop):
             new = HContainer(self)
         elif typ == 'tab':
             new = TContainer(self)
+        else:
+            raise ValueError("typ must be one of 'vertical', 'horizontal', or 'tab'")
         return new
         
     def addContainer(self, typ, obj):
@@ -142,7 +143,7 @@ class DockArea(Container, QtGui.QWidget, DockDrop):
         #print "Add container:", new, " -> ", container
         if obj is not None:
             new.insert(obj)
-        self.raiseOverlay()
+        self.dockdrop.raiseOverlay()
         return new
     
     def insert(self, new, pos=None, neighbor=None):
@@ -153,7 +154,7 @@ class DockArea(Container, QtGui.QWidget, DockDrop):
         self.layout.addWidget(new)
         new.containerChanged(self)
         self.topContainer = new
-        self.raiseOverlay()
+        self.dockdrop.raiseOverlay()
         
     def count(self):
         if self.topContainer is None:
@@ -161,7 +162,7 @@ class DockArea(Container, QtGui.QWidget, DockDrop):
         return 1
         
     def resizeEvent(self, ev):
-        self.resizeOverlay(self.size())
+        self.dockdrop.resizeOverlay(self.size())
         
     def addTempArea(self):
         if self.home is None:
@@ -261,7 +262,6 @@ class DockArea(Container, QtGui.QWidget, DockDrop):
 
     def buildFromState(self, state, docks, root, depth=0, missing='error'):
         typ, contents, state = state
-        pfx = "  " * depth
         if typ == 'dock':
             try:
                 obj = docks[contents]
@@ -280,7 +280,6 @@ class DockArea(Container, QtGui.QWidget, DockDrop):
             obj = self.makeContainer(typ)
             
         root.insert(obj, 'after')
-        #print pfx+"Add:", obj, " -> ", root
         
         if typ != 'dock':
             for o in contents:
@@ -328,19 +327,17 @@ class DockArea(Container, QtGui.QWidget, DockDrop):
         for dock in docks.values():
             dock.close()
             
-    ## PySide bug: We need to explicitly redefine these methods
-    ## or else drag/drop events will not be delivered.
     def dragEnterEvent(self, *args):
-        DockDrop.dragEnterEvent(self, *args)
+        self.dockdrop.dragEnterEvent(*args)
 
     def dragMoveEvent(self, *args):
-        DockDrop.dragMoveEvent(self, *args)
+        self.dockdrop.dragMoveEvent(*args)
 
     def dragLeaveEvent(self, *args):
-        DockDrop.dragLeaveEvent(self, *args)
+        self.dockdrop.dragLeaveEvent(*args)
 
     def dropEvent(self, *args):
-        DockDrop.dropEvent(self, *args)
+        self.dockdrop.dropEvent(*args)
 
     def printState(self, state=None, name='Main'):
         # for debugging
@@ -365,10 +362,10 @@ class DockArea(Container, QtGui.QWidget, DockDrop):
 
 
 
-class TempAreaWindow(QtGui.QWidget):
+class TempAreaWindow(QtWidgets.QWidget):
     def __init__(self, area, **kwargs):
-        QtGui.QWidget.__init__(self, **kwargs)
-        self.layout = QtGui.QGridLayout()
+        QtWidgets.QWidget.__init__(self, **kwargs)
+        self.layout = QtWidgets.QGridLayout()
         self.setLayout(self.layout)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.dockarea = area
@@ -382,4 +379,4 @@ class TempAreaWindow(QtGui.QWidget):
                 dock.orig_area.addDock(dock, )
         # clear dock area, and close remaining docks
         self.dockarea.clear()
-        QtGui.QWidget.closeEvent(self, *args)
+        super().closeEvent(*args)

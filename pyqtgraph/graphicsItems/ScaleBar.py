@@ -1,23 +1,22 @@
-from ..Qt import QtGui, QtCore
-from .GraphicsObject import *
-from .GraphicsWidgetAnchor import *
-from .TextItem import TextItem
-import numpy as np
 from .. import functions as fn
 from .. import getConfigOption
 from ..Point import Point
+from ..Qt import QtCore, QtWidgets
+from .GraphicsObject import GraphicsObject
+from .GraphicsWidgetAnchor import GraphicsWidgetAnchor
+from .TextItem import TextItem
 
 __all__ = ['ScaleBar']
 
-class ScaleBar(GraphicsObject, GraphicsWidgetAnchor):
+class ScaleBar(GraphicsWidgetAnchor, GraphicsObject):
     """
     Displays a rectangular bar to indicate the relative scale of objects on the view.
     """
     def __init__(self, size, width=5, brush=None, pen=None, suffix='m', offset=None):
         GraphicsObject.__init__(self)
         GraphicsWidgetAnchor.__init__(self)
-        self.setFlag(self.ItemHasNoContents)
-        self.setAcceptedMouseButtons(QtCore.Qt.NoButton)
+        self.setFlag(self.GraphicsItemFlag.ItemHasNoContents)
+        self.setAcceptedMouseButtons(QtCore.Qt.MouseButton.NoButton)
         
         if brush is None:
             brush = getConfigOption('foreground')
@@ -25,11 +24,11 @@ class ScaleBar(GraphicsObject, GraphicsWidgetAnchor):
         self.pen = fn.mkPen(pen)
         self._width = width
         self.size = size
-        if offset == None:
+        if offset is None:
             offset = (0,0)
         self.offset = offset
         
-        self.bar = QtGui.QGraphicsRectItem()
+        self.bar = QtWidgets.QGraphicsRectItem()
         self.bar.setPen(self.pen)
         self.bar.setBrush(self.brush)
         self.bar.setParentItem(self)
@@ -37,7 +36,7 @@ class ScaleBar(GraphicsObject, GraphicsWidgetAnchor):
         self.text = TextItem(text=fn.siFormat(size, suffix=suffix), anchor=(0.5,1))
         self.text.setParentItem(self)
 
-    def parentChanged(self):
+    def changeParent(self):
         view = self.parentItem()
         if view is None:
             return
@@ -67,5 +66,3 @@ class ScaleBar(GraphicsObject, GraphicsWidgetAnchor):
             anchor = (anchorx, anchory)
             self.anchor(itemPos=anchor, parentPos=anchor, offset=offset)
         return ret
-
-

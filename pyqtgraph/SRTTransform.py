@@ -1,7 +1,10 @@
-# -*- coding: utf-8 -*-
-from .Qt import QtCore, QtGui
-from .Point import Point
+from math import atan2, degrees
+
 import numpy as np
+
+from . import SRTTransform3D
+from .Point import Point
+from .Qt import QtGui
 
 
 class SRTTransform(QtGui.QTransform):
@@ -30,13 +33,8 @@ class SRTTransform(QtGui.QTransform):
         else:
             raise Exception("Cannot create SRTTransform from input type: %s" % str(type(init)))
 
-        
     def getScale(self):
         return self._state['scale']
-        
-    def getAngle(self):  
-        ## deprecated; for backward compatibility
-        return self.getRotation()
         
     def getRotation(self):
         return self._state['angle']
@@ -61,8 +59,7 @@ class SRTTransform(QtGui.QTransform):
         dp3 = Point(p3-p1)
         
         ## detect flipped axes
-        if dp2.angle(dp3) > 0:
-            #da = 180
+        if dp2.angle(dp3, units="radians") > 0:
             da = 0
             sy = -1.0
         else:
@@ -72,12 +69,12 @@ class SRTTransform(QtGui.QTransform):
         self._state = {
             'pos': Point(p1),
             'scale': Point(dp2.length(), dp3.length() * sy),
-            'angle': (np.arctan2(dp2[1], dp2[0]) * 180. / np.pi) + da
+            'angle': degrees(atan2(dp2[1], dp2[0])) + da
         }
         self.update()
         
     def setFromMatrix4x4(self, m):
-        m = SRTTransform3D(m)
+        m = SRTTransform3D.SRTTransform3D(m)
         angle, axis = m.getRotation()
         if angle != 0 and (axis[0] != 0 or axis[1] != 0 or axis[2] != 1):
             print("angle: %s  axis: %s" % (str(angle), str(axis)))
@@ -144,9 +141,10 @@ class SRTTransform(QtGui.QTransform):
     def saveState(self):
         p = self._state['pos']
         s = self._state['scale']
-        #if s[0] == 0:
-            #raise Exception('Invalid scale: %s' % str(s))
         return {'pos': (p[0], p[1]), 'scale': (s[0], s[1]), 'angle': self._state['angle']}
+
+    def __reduce__(self):
+        return SRTTransform, (self.saveState(),)
 
     def restoreState(self, state):
         self._state['pos'] = Point(state.get('pos', (0,0)))
@@ -166,95 +164,3 @@ class SRTTransform(QtGui.QTransform):
         
     def matrix(self):
         return np.array([[self.m11(), self.m12(), self.m13()],[self.m21(), self.m22(), self.m23()],[self.m31(), self.m32(), self.m33()]])
-
-        
-if __name__ == '__main__':
-    from . import widgets
-    import GraphicsView
-    from .functions import *
-    app = QtGui.QApplication([])
-    win = QtGui.QMainWindow()
-    win.show()
-    cw = GraphicsView.GraphicsView()
-    #cw.enableMouse()  
-    win.setCentralWidget(cw)
-    s = QtGui.QGraphicsScene()
-    cw.setScene(s)
-    win.resize(600,600)
-    cw.enableMouse()
-    cw.setRange(QtCore.QRectF(-100., -100., 200., 200.))
-    
-    class Item(QtGui.QGraphicsItem):
-        def __init__(self):
-            QtGui.QGraphicsItem.__init__(self)
-            self.b = QtGui.QGraphicsRectItem(20, 20, 20, 20, self)
-            self.b.setPen(QtGui.QPen(mkPen('y')))
-            self.t1 = QtGui.QGraphicsTextItem(self)
-            self.t1.setHtml('<span style="color: #F00">R</span>')
-            self.t1.translate(20, 20)
-            self.l1 = QtGui.QGraphicsLineItem(10, 0, -10, 0, self)
-            self.l2 = QtGui.QGraphicsLineItem(0, 10, 0, -10, self)
-            self.l1.setPen(QtGui.QPen(mkPen('y')))
-            self.l2.setPen(QtGui.QPen(mkPen('y')))
-        def boundingRect(self):
-            return QtCore.QRectF()
-        def paint(self, *args):
-            pass
-            
-    #s.addItem(b)
-    #s.addItem(t1)
-    item = Item()
-    s.addItem(item)
-    l1 = QtGui.QGraphicsLineItem(10, 0, -10, 0)
-    l2 = QtGui.QGraphicsLineItem(0, 10, 0, -10)
-    l1.setPen(QtGui.QPen(mkPen('r')))
-    l2.setPen(QtGui.QPen(mkPen('r')))
-    s.addItem(l1)
-    s.addItem(l2)
-    
-    tr1 = SRTTransform()
-    tr2 = SRTTransform()
-    tr3 = QtGui.QTransform()
-    tr3.translate(20, 0)
-    tr3.rotate(45)
-    print("QTransform -> Transform:", SRTTransform(tr3))
-    
-    print("tr1:", tr1)
-    
-    tr2.translate(20, 0)
-    tr2.rotate(45)
-    print("tr2:", tr2)
-    
-    dt = tr2/tr1
-    print("tr2 / tr1 = ", dt)
-    
-    print("tr2 * tr1 = ", tr2*tr1)
-    
-    tr4 = SRTTransform()
-    tr4.scale(-1, 1)
-    tr4.rotate(30)
-    print("tr1 * tr4 = ", tr1*tr4)
-    
-    w1 = widgets.TestROI((19,19), (22, 22), invertible=True)
-    #w2 = widgets.TestROI((0,0), (150, 150))
-    w1.setZValue(10)
-    s.addItem(w1)
-    #s.addItem(w2)
-    w1Base = w1.getState()
-    #w2Base = w2.getState()
-    def update():
-        tr1 = w1.getGlobalTransform(w1Base)
-        #tr2 = w2.getGlobalTransform(w2Base)
-        item.setTransform(tr1)
-        
-    #def update2():
-        #tr1 = w1.getGlobalTransform(w1Base)
-        #tr2 = w2.getGlobalTransform(w2Base)
-        #t1.setTransform(tr1)
-        #w1.setState(w1Base)
-        #w1.applyGlobalTransform(tr2)
-        
-    w1.sigRegionChanged.connect(update)
-    #w2.sigRegionChanged.connect(update2)
-    
-from .SRTTransform3D import SRTTransform3D

@@ -1,10 +1,8 @@
-from ..Qt import QtCore, QtGui
+from .parameterTypes import GroupParameterItem
+from ..Qt import QtCore, QtWidgets, QtGui, mkQApp
 from ..widgets.TreeWidget import TreeWidget
-import os, weakref, re
 from .ParameterItem import ParameterItem
-#import functions as fn
-        
-            
+
 
 class ParameterTree(TreeWidget):
     """Widget used to display or control data from a hierarchy of Parameters"""
@@ -18,21 +16,22 @@ class ParameterTree(TreeWidget):
         ============== ========================================================
         """
         TreeWidget.__init__(self, parent)
-        self.setVerticalScrollMode(self.ScrollPerPixel)
-        self.setHorizontalScrollMode(self.ScrollPerPixel)
+        self.setVerticalScrollMode(self.ScrollMode.ScrollPerPixel)
+        self.setHorizontalScrollMode(self.ScrollMode.ScrollPerPixel)
         self.setAnimated(False)
         self.setColumnCount(2)
         self.setHeaderLabels(["Parameter", "Value"])
-        self.setAlternatingRowColors(True)
         self.paramSet = None
-        self.header().setResizeMode(QtGui.QHeaderView.ResizeToContents)
+        self.header().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         self.setHeaderHidden(not showHeader)
         self.itemChanged.connect(self.itemChangedEvent)
         self.itemExpanded.connect(self.itemExpandedEvent)
         self.itemCollapsed.connect(self.itemCollapsedEvent)
         self.lastSel = None
         self.setRootIsDecorated(False)
-        
+        self.setAlternatingRowColors(True)
+        self._updatePalette(self.palette())
+
     def setParameters(self, param, showTop=True):
         """
         Set the top-level :class:`Parameter <pyqtgraph.parametertree.Parameter>`
@@ -132,7 +131,57 @@ class ParameterTree(TreeWidget):
         item = self.currentItem()
         if hasattr(item, 'contextMenuEvent'):
             item.contextMenuEvent(ev)
-            
+
+    def _updatePalette(self, palette: QtGui.QPalette) -> None:
+        app = mkQApp()
+        # Docs say to use the following methods
+        # QApplication.instance().styleHints().colorScheme() == QtCore.Qt.ColorScheme.Dark
+        # but on macOS with Qt 6.7 this is giving opposite results (says color sceme is light
+        # when it is dark and vice versa). This was not observed in the ExampleApp, but was
+        # observed with the ParameterTree. We fall back to the "legacy" method of determining
+        # if the color theme is dark or light from QPalette
+        windowTextLightness = palette.color(QtGui.QPalette.ColorRole.WindowText).lightness()
+        windowLightness = palette.color(QtGui.QPalette.ColorRole.Window).lightness()
+        darkMode = windowTextLightness > windowLightness
+        app.setProperty('darkMode', darkMode)
+
+        for group in [
+            QtGui.QPalette.ColorGroup.Disabled,
+            QtGui.QPalette.ColorGroup.Active,
+            QtGui.QPalette.ColorGroup.Inactive
+        ]:
+            baseColor = palette.color(
+                group,
+                QtGui.QPalette.ColorRole.Base
+            )
+            if app.property("darkMode"):
+                alternateColor = baseColor.lighter(180)
+            else:
+                alternateColor = baseColor.darker(110)
+            # apparently colors are transparent here by default!
+            alternateColor.setAlpha(255)
+            palette.setColor(
+                group,
+                QtGui.QPalette.ColorRole.AlternateBase,
+                alternateColor
+            )
+        self.setPalette(palette)
+        return None
+
+    def event(self, event: QtCore.QEvent) -> bool:
+        if event.type() == QtCore.QEvent.Type.FontChange:
+            for item in self.listAllItems():
+                if isinstance(item, GroupParameterItem):
+                    item.updateDepth(item.depth)
+        elif event.type() == QtCore.QEvent.Type.ApplicationPaletteChange:
+            app = mkQApp()
+            self._updatePalette(app.palette())
+        elif event.type() == QtCore.QEvent.Type.PaletteChange:
+            # For Windows to effectively change all the rows we
+            # need to catch QEvent.Type.PaletteChange event as well
+            self._updatePalette(self.palette())
+        return super().event(event)
+
     def itemChangedEvent(self, item, col):
         if hasattr(item, 'columnChangedEvent'):
             item.columnChangedEvent(col)
@@ -157,8 +206,38 @@ class ParameterTree(TreeWidget):
         self.lastSel = sel[0]
         if hasattr(sel[0], 'selected'):
             sel[0].selected(True)
-        return TreeWidget.selectionChanged(self, *args)
+        return super().selectionChanged(*args)
         
-    def wheelEvent(self, ev):
-        self.clearSelection()
-        return TreeWidget.wheelEvent(self, ev)
+    # commented out due to being unreliable
+    # def wheelEvent(self, ev):
+    #     self.clearSelection()
+    #     return super().wheelEvent(ev)
+
+    def sizeHint(self):
+        w, h = 0, 0
+        ind = self.indentation()
+        for x in self.listAllItems():
+            if x.isHidden():
+                continue
+            try:
+                depth = x.depth
+            except AttributeError:
+                depth = 0
+
+            s0 = x.sizeHint(0)
+            s1 = x.sizeHint(1)
+            w = max(w, depth * ind + max(0, s0.width()) + max(0, s1.width()))
+            h += max(0, s0.height(), s1.height())
+            # typ = x.param.opts['type'] if isinstance(x, ParameterItem) else x
+            # print(typ, depth * ind, (s0.width(), s0.height()), (s1.width(), s1.height()), (w, h))
+
+        # todo: find out if this alternative can be made to work (currently fails when color or colormap are present)
+        # print('custom', (w, h))
+        # w = self.sizeHintForColumn(0) + self.sizeHintForColumn(1)
+        # h = self.viewportSizeHint().height()
+        # print('alternative', (w, h))
+
+        if not self.header().isHidden():
+            h += self.header().height()
+
+        return QtCore.QSize(w, h)
