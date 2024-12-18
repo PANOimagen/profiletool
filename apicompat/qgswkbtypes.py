@@ -2,6 +2,7 @@
 
 import qgis.core
 
+
 class QgsWkbTypes:
 
     Point = qgis.core.QGis.WKBPoint
@@ -16,5 +17,6 @@ class QgsWkbTypes:
 
     LineGeometry = qgis.core.QGis.Line
     PointGeometry = qgis.core.QGis.Point
+
 
 qgis.core.QgsWkbTypes = QgsWkbTypes

@@ -40,7 +40,9 @@ class DlgAbout(QDialog, FormClass):
         QDialog.__init__(self, parent)
         self.setupUi(self)
 
-        fp = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), "metadata.txt")
+        fp = os.path.join(
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..")), "metadata.txt"
+        )
 
         iniText = QSettings(fp, QSettings.IniFormat)
         verno = iniText.value("version")

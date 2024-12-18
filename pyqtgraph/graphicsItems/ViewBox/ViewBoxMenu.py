@@ -1,50 +1,38 @@
-# -*- coding: utf-8 -*-
-from ...Qt import QtCore, QtGui, QT_LIB
-from ...python2_3 import asUnicode
+from ...Qt import QtCore, QtGui, QtWidgets
 from ...WidgetGroup import WidgetGroup
 
-if QT_LIB == 'PyQt4':
-    from .axisCtrlTemplate_pyqt import Ui_Form as AxisCtrlTemplate
-elif QT_LIB == 'PySide':
-    from .axisCtrlTemplate_pyside import Ui_Form as AxisCtrlTemplate
-elif QT_LIB == 'PyQt5':
-    from .axisCtrlTemplate_pyqt5 import Ui_Form as AxisCtrlTemplate
-elif QT_LIB == 'PySide2':
-    from .axisCtrlTemplate_pyside2 import Ui_Form as AxisCtrlTemplate
+from . import axisCtrlTemplate_generic as ui_template
 
-import weakref 
+import weakref
 
-class ViewBoxMenu(QtGui.QMenu):
+translate = QtCore.QCoreApplication.translate
+class ViewBoxMenu(QtWidgets.QMenu):
     def __init__(self, view):
-        QtGui.QMenu.__init__(self)
+        QtWidgets.QMenu.__init__(self)
         
         self.view = weakref.ref(view)  ## keep weakref to view to avoid circular reference (don't know why, but this prevents the ViewBox from being collected)
         self.valid = False  ## tells us whether the ui needs to be updated
         self.viewMap = weakref.WeakValueDictionary()  ## weakrefs to all views listed in the link combos
 
-        self.setTitle("ViewBox options")
-        self.viewAll = QtGui.QAction("View All", self)
+        self.setTitle(translate("ViewBox", "ViewBox options"))
+        self.viewAll = QtGui.QAction(translate("ViewBox", "View All"), self)
         self.viewAll.triggered.connect(self.autoRange)
         self.addAction(self.viewAll)
         
-        self.axes = []
         self.ctrl = []
         self.widgetGroups = []
         self.dv = QtGui.QDoubleValidator(self)
         for axis in 'XY':
-            m = QtGui.QMenu()
-            m.setTitle("%s Axis" % axis)
-            w = QtGui.QWidget()
-            ui = AxisCtrlTemplate()
+            m = self.addMenu(f"{axis} {translate('ViewBox', 'axis')}")
+            w = QtWidgets.QWidget()
+            ui = ui_template.Ui_Form()
             ui.setupUi(w)
-            a = QtGui.QWidgetAction(self)
+            a = QtWidgets.QWidgetAction(self)
             a.setDefaultWidget(w)
             m.addAction(a)
-            self.addMenu(m)
-            self.axes.append(m)
             self.ctrl.append(ui)
             wg = WidgetGroup(w)
-            self.widgetGroups.append(w)
+            self.widgetGroups.append(wg)
             
             connects = [
                 (ui.mouseCheck.toggled, 'MouseToggled'),
@@ -63,42 +51,23 @@ class ViewBoxMenu(QtGui.QMenu):
 
         self.ctrl[0].invertCheck.toggled.connect(self.xInvertToggled)
         self.ctrl[1].invertCheck.toggled.connect(self.yInvertToggled)
-        ## exporting is handled by GraphicsScene now
-        #self.export = QtGui.QMenu("Export")
-        #self.setExportMethods(view.exportMethods)
-        #self.addMenu(self.export)
         
-        self.leftMenu = QtGui.QMenu("Mouse Mode")
+        leftMenu = self.addMenu(translate("ViewBox", "Mouse Mode"))
+
         group = QtGui.QActionGroup(self)
-        
-        # This does not work! QAction _must_ be initialized with a permanent 
-        # object as the parent or else it may be collected prematurely.
-        #pan = self.leftMenu.addAction("3 button", self.set3ButtonMode)
-        #zoom = self.leftMenu.addAction("1 button", self.set1ButtonMode)
-        pan = QtGui.QAction("3 button", self.leftMenu)
-        zoom = QtGui.QAction("1 button", self.leftMenu)
-        self.leftMenu.addAction(pan)
-        self.leftMenu.addAction(zoom)
-        pan.triggered.connect(self.set3ButtonMode)
-        zoom.triggered.connect(self.set1ButtonMode)
-        
+        group.triggered.connect(self.setMouseMode)
+        pan = QtGui.QAction(translate("ViewBox", "3 button"), group)
+        zoom = QtGui.QAction(translate("ViewBox", "1 button"), group)
         pan.setCheckable(True)
         zoom.setCheckable(True)
-        pan.setActionGroup(group)
-        zoom.setActionGroup(group)
+
+        leftMenu.addActions(group.actions())
+
         self.mouseModes = [pan, zoom]
-        self.addMenu(self.leftMenu)
         
         self.view().sigStateChanged.connect(self.viewStateChanged)
         
         self.updateState()
-
-    def setExportMethods(self, methods):
-        self.exportMethods = methods
-        self.export.clear()
-        for opt, fn in methods.items():
-            self.export.addAction(opt, self.exportMethod)
-        
 
     def viewStateChanged(self):
         self.valid = False
@@ -121,7 +90,7 @@ class ViewBoxMenu(QtGui.QMenu):
             if state['autoRange'][i] is not False:
                 self.ctrl[i].autoRadio.setChecked(True)
                 if state['autoRange'][i] is not True:
-                    self.ctrl[i].autoPercentSpin.setValue(state['autoRange'][i]*100)
+                    self.ctrl[i].autoPercentSpin.setValue(int(state['autoRange'][i] * 100))
             else:
                 self.ctrl[i].manualRadio.setChecked(True)
             self.ctrl[i].mouseCheck.setChecked(state['mouseEnabled'][i])
@@ -152,7 +121,7 @@ class ViewBoxMenu(QtGui.QMenu):
     def popup(self, *args):
         if not self.valid:
             self.updateState()
-        QtGui.QMenu.popup(self, *args)
+        QtWidgets.QMenu.popup(self, *args)
         
     def autoRange(self):
         self.view().autoRange()  ## don't let signal call this directly--it'll add an unwanted argument
@@ -218,15 +187,14 @@ class ViewBoxMenu(QtGui.QMenu):
     def xInvertToggled(self, b):
         self.view().invertX(b)
 
-    def exportMethod(self):
-        act = self.sender()
-        self.exportMethods[str(act.text())]()
-
-    def set3ButtonMode(self):
-        self.view().setLeftButtonAction('pan')
-        
-    def set1ButtonMode(self):
-        self.view().setLeftButtonAction('rect')
+    def setMouseMode(self, action):
+        mode = None
+        if action == self.mouseModes[0]:
+            mode = 'pan'
+        elif action == self.mouseModes[1]:
+            mode = 'rect'
+        if mode is not None:
+            self.view().setLeftButtonAction(mode)
         
     def setViewList(self, views):
         names = ['']
@@ -242,7 +210,7 @@ class ViewBoxMenu(QtGui.QMenu):
             
         for i in [0,1]:
             c = self.ctrl[i].linkCombo
-            current = asUnicode(c.currentText())
+            current = c.currentText()
             c.blockSignals(True)
             changed = True
             try:
@@ -274,5 +242,3 @@ class ViewBoxMenu(QtGui.QMenu):
 
         
 from .ViewBox import ViewBox
-        
-    

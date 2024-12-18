@@ -1,22 +1,18 @@
-# -*- coding: utf-8 -*-
-import numpy as np
-from ..Qt import QtGui, QtCore, QtSvg, QT_LIB
-from ..graphicsItems.ROI import ROI
-from .. import SRTTransform, ItemGroup
-if QT_LIB == 'PySide':
-    from . import TransformGuiTemplate_pyside as TransformGuiTemplate
-elif QT_LIB == 'PyQt4':
-    from . import TransformGuiTemplate_pyqt as TransformGuiTemplate
-elif QT_LIB == 'PySide2':
-    from . import TransformGuiTemplate_pyside2 as TransformGuiTemplate
-elif QT_LIB == 'PyQt5':
-    from . import TransformGuiTemplate_pyqt5 as TransformGuiTemplate
+__all__ = ["CanvasItem", "GroupCanvasItem"]
 
-from .. import debug
+import importlib
+
+from .. import ItemGroup, SRTTransform, debug
+from .. import functions as fn
+from ..graphicsItems.ROI import ROI
+from ..Qt import QT_LIB, QtCore, QtWidgets
+from . import TransformGuiTemplate_generic as ui_template
+
+translate = QtCore.QCoreApplication.translate
 
 class SelectBox(ROI):
     def __init__(self, scalable=False, rotatable=True):
-        #QtGui.QGraphicsRectItem.__init__(self, 0, 0, size[0], size[1])
+        #QtWidgets.QGraphicsRectItem.__init__(self, 0, 0, size[0], size[1])
         ROI.__init__(self, [0,0], [1,1], invertible=True)
         center = [0.5, 0.5]
             
@@ -60,25 +56,25 @@ class CanvasItem(QtCore.QObject):
         if z is not None:
             item.setZValue(z)
 
-        self.ctrl = QtGui.QWidget()
-        self.layout = QtGui.QGridLayout()
+        self.ctrl = QtWidgets.QWidget()
+        self.layout = QtWidgets.QGridLayout()
         self.layout.setSpacing(0)
         self.layout.setContentsMargins(0,0,0,0)
         self.ctrl.setLayout(self.layout)
         
-        self.alphaLabel = QtGui.QLabel("Alpha")
-        self.alphaSlider = QtGui.QSlider()
+        self.alphaLabel = QtWidgets.QLabel(translate("CanvasItem", "Alpha"))
+        self.alphaSlider = QtWidgets.QSlider()
         self.alphaSlider.setMaximum(1023)
-        self.alphaSlider.setOrientation(QtCore.Qt.Horizontal)
+        self.alphaSlider.setOrientation(QtCore.Qt.Orientation.Horizontal)
         self.alphaSlider.setValue(1023)
         self.layout.addWidget(self.alphaLabel, 0, 0)
         self.layout.addWidget(self.alphaSlider, 0, 1)
-        self.resetTransformBtn = QtGui.QPushButton('Reset Transform')
-        self.copyBtn = QtGui.QPushButton('Copy')
-        self.pasteBtn = QtGui.QPushButton('Paste')
+        self.resetTransformBtn = QtWidgets.QPushButton('Reset Transform')
+        self.copyBtn = QtWidgets.QPushButton('Copy')
+        self.pasteBtn = QtWidgets.QPushButton('Paste')
         
-        self.transformWidget = QtGui.QWidget()
-        self.transformGui = TransformGuiTemplate.Ui_Form()
+        self.transformWidget = QtWidgets.QWidget()
+        self.transformGui = ui_template.Ui_Form()
         self.transformGui.setupUi(self.transformWidget)
         self.layout.addWidget(self.transformWidget, 3, 0, 1, 2)
         self.transformGui.mirrorImageBtn.clicked.connect(self.mirrorY)
@@ -122,8 +118,8 @@ class CanvasItem(QtCore.QObject):
 
         ## set up the transformations that will be applied to the item
         ## (It is not safe to use item.setTransform, since the item might count on that not changing)
-        self.itemRotation = QtGui.QGraphicsRotation()
-        self.itemScale = QtGui.QGraphicsScale()
+        self.itemRotation = QtWidgets.QGraphicsRotation()
+        self.itemScale = QtWidgets.QGraphicsScale()
         self._graphicsItem.setTransformations([self.itemRotation, self.itemScale])
         
         self.tempTransform = SRTTransform() ## holds the additional transform that happens during a move - gets added to the userTransform when move is done.
@@ -243,7 +239,7 @@ class CanvasItem(QtCore.QObject):
         self._graphicsItem.setOpacity(alpha)
         
     def setAlpha(self, alpha):
-        self.alphaSlider.setValue(int(np.clip(alpha * 1023, 0, 1023)))
+        self.alphaSlider.setValue(int(fn.clip_scalar(alpha * 1023, 0, 1023)))
         
     def alpha(self):
         return self.alphaSlider.value() / 1023.

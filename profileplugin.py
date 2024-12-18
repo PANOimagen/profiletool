@@ -24,21 +24,16 @@
 #
 # ---------------------------------------------------------------------
 
-import qgis
-from qgis.core import *
-from qgis.gui import *
-from qgis.PyQt.QtCore import *
-from qgis.PyQt.QtGui import *
-from qgis.utils import *
-
-try:
-    from qgis.PyQt.QtWidgets import *
-except:
-    pass
-
-from . import resources
-from .tools.profiletool_core import ProfileToolCore
+from contextlib import suppress
 from os import path
+
+from qgis.core import QgsSettings
+from qgis.PyQt.QtCore import QCoreApplication, QTranslator
+from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtWidgets import QAction
+
+from .tools.profiletool_core import ProfileToolCore
+
 
 class ProfilePlugin:
     def __init__(self, iface):
@@ -59,15 +54,14 @@ class ProfilePlugin:
 
         self.profiletool = None
         self.dockOpened = False  # remember for not reopening dock if there's already one opened
-        # self.wdg = None
-        # self.tool = None
-        # self.lastFreeHandPoints = []
         self.canvas.mapToolSet.connect(self.mapToolChanged)
 
     def initGui(self):
         # create action
         self.action = QAction(
-            QIcon(":/plugins/profiletool/icons/profileIcon.png"), self.tr("Terrain profile"), self.iface.mainWindow()
+            QIcon(path.join(self.plugin_dir, "icons/profileIcon.png")),
+            self.tr("Terrain profile"),
+            self.iface.mainWindow(),
         )
         self.action.setWhatsThis(self.tr("Plots terrain profiles"))
         self.action.triggered.connect(self.run)
@@ -79,15 +73,9 @@ class ProfilePlugin:
         self.iface.addPluginToMenu("&Profile Tool", self.aboutAction)
 
     def unload(self):
-        try:
+        with suppress(AttributeError, RuntimeError, TypeError):
             self.profiletool.dockwidget.close()
-        except:
-            pass
-
-        try:
             self.canvas.mapToolSet.disconnect(self.mapToolChanged)
-        except:
-            pass
 
         self.iface.removeToolBarIcon(self.action)
         self.iface.removePluginMenu("&Profile Tool", self.action)
@@ -101,7 +89,9 @@ class ProfilePlugin:
         if not self.dockOpened:
             # if self.profiletool is None:
             self.profiletool = ProfileToolCore(self.iface, self)
-            self.iface.addDockWidget(self.profiletool.dockwidget.location, self.profiletool.dockwidget)
+            self.iface.addDockWidget(
+                self.profiletool.dockwidget.location, self.profiletool.dockwidget
+            )
             self.profiletool.dockwidget.closed.connect(self.cleaning)
             self.dockOpened = True
             self.profiletool.activateProfileMapTool()
@@ -123,4 +113,4 @@ class ProfilePlugin:
     def about(self):
         from .ui.dlgabout import DlgAbout
 
-        DlgAbout(self.iface.mainWindow()).exec_()
+        DlgAbout(self.iface.mainWindow()).exec()

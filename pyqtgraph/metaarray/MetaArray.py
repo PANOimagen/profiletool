@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 MetaArray.py -  Class encapsulating ndarray with meta data
 Copyright 2010  Luke Campagnola
@@ -10,11 +9,12 @@ new methods for slicing and indexing the array based on this meta data.
 More info at http://www.scipy.org/Cookbook/MetaArray
 """
 
-import types, copy, threading, os, re
+import copy
+import os
 import pickle
-import numpy as np
-from ..python2_3 import basestring
+import warnings
 
+import numpy as np
 
 ## By default, the library will use HDF5 when writing files.
 ## This can be overridden by setting USE_HDF5 = False
@@ -120,10 +120,10 @@ class MetaArray(object):
     defaultCompression = None
     
     ## Types allowed as axis or column names
-    nameTypes = [basestring, tuple]
+    nameTypes = [str, tuple]
     @staticmethod
     def isNameType(var):
-        return any([isinstance(var, t) for t in MetaArray.nameTypes])
+        return any(isinstance(var, t) for t in MetaArray.nameTypes)
         
         
     ## methods to wrap from embedded ndarray / HDF5 
@@ -131,6 +131,11 @@ class MetaArray(object):
   
     def __init__(self, data=None, info=None, dtype=None, file=None, copy=False, **kwargs):
         object.__init__(self)
+        warnings.warn(
+            'MetaArray is deprecated and will be removed in 0.14. '
+            'Available though https://pypi.org/project/MetaArray/ as its own package.',
+            DeprecationWarning, stacklevel=2
+        )    
         self._isHDF = False
         
         if file is not None:
@@ -318,13 +323,6 @@ class MetaArray(object):
             return self.asarray()
         else:
             return self.asarray().astype(dtype)
-            
-    def view(self, typ):
-        ## deprecated; kept for backward compatibility
-        if typ is np.ndarray:
-            return self.asarray()
-        else:
-            raise Exception('invalid view type: %s' % str(typ))
   
     def axisValues(self, axis):
         """Return the list of values for an axis"""
@@ -402,8 +400,10 @@ class MetaArray(object):
         if type(axis) == int:
             ind = [slice(None)]*axis
             ind.append(order)
-        elif isinstance(axis, basestring):
+        elif isinstance(axis, str):
             ind = (slice(axis, order),)
+        else:
+            raise TypeError("axis must be type (int, str)")
         return self[tuple(ind)]
   
     def append(self, val, axis):
@@ -459,7 +459,7 @@ class MetaArray(object):
         return tuple(nInd)
       
     def _interpretAxis(self, axis):
-        if isinstance(axis, basestring) or isinstance(axis, tuple):
+        if isinstance(axis, (str, tuple)):
             return self._getAxis(axis)
         else:
             return axis
@@ -731,7 +731,7 @@ class MetaArray(object):
         frameSize = 1
         for ax in meta['info']:
             if 'values_len' in ax:
-                ax['values'] = np.fromstring(fd.read(ax['values_len']), dtype=ax['values_type'])
+                ax['values'] = np.frombuffer(fd.read(ax['values_len']), dtype=ax['values_type'])
                 frameSize *= ax['values_len']
                 del ax['values_len']
                 del ax['values_type']
@@ -742,7 +742,7 @@ class MetaArray(object):
         if mmap:
             subarr = np.memmap(fd, dtype=meta['type'], mode='r', shape=meta['shape'])
         else:
-            subarr = np.fromstring(fd.read(), dtype=meta['type'])
+            subarr = np.frombuffer(fd.read(), dtype=meta['type'])
             subarr.shape = meta['shape']
         self._data = subarr
             
@@ -759,7 +759,7 @@ class MetaArray(object):
                         raise Exception("MetaArray has more than one dynamic axis! (this is not allowed)")
                     dynAxis = i
                 else:
-                    ax['values'] = np.fromstring(fd.read(ax['values_len']), dtype=ax['values_type'])
+                    ax['values'] = np.frombuffer(fd.read(ax['values_len']), dtype=ax['values_type'])
                     frameSize *= ax['values_len']
                     del ax['values_len']
                     del ax['values_type']
@@ -777,7 +777,7 @@ class MetaArray(object):
                 if mmap:
                     subarr = np.memmap(fd, dtype=meta['type'], mode='r', shape=meta['shape'])
                 else:
-                    subarr = np.fromstring(fd.read(), dtype=meta['type'])
+                    subarr = np.frombuffer(fd.read(), dtype=meta['type'])
             subarr.shape = meta['shape']
         ## One axis is dynamic, read in a frame at a time
         else:
@@ -807,7 +807,7 @@ class MetaArray(object):
                 if meta['type'] == 'object':
                     data = pickle.loads(fd.read(inf['len']))
                 else:
-                    data = np.fromstring(fd.read(inf['len']), dtype=meta['type'])
+                    data = np.frombuffer(fd.read(inf['len']), dtype=meta['type'])
                 
                 if data.size != frameSize * inf['numFrames']:
                     #print data.size, frameSize, inf['numFrames']
@@ -896,8 +896,9 @@ class MetaArray(object):
         
         if proc == False:
             raise Exception('remote read failed')
-        if proc == None:
+        if proc is None:
             from .. import multiprocess as mp
+
             #print "new process"
             proc = mp.Process(executable='/usr/bin/python')
             proc.setProxyOptions(deferGetattr=True)
@@ -927,7 +928,7 @@ class MetaArray(object):
             val = root.attrs[k]
             if isinstance(val, bytes):
                 val = val.decode()
-            if isinstance(val, basestring):  ## strings need to be re-evaluated to their original types
+            if isinstance(val, str):  ## strings need to be re-evaluated to their original types
                 try:
                     val = eval(val)
                 except:
@@ -1198,171 +1199,3 @@ class MetaArray(object):
             file.close()
         else:
             return ret
-  
-  
-if __name__ == '__main__':
-    ## Create an array with every option possible
-    
-    arr = np.zeros((2, 5, 3, 5), dtype=int)
-    for i in range(arr.shape[0]):
-        for j in range(arr.shape[1]):
-            for k in range(arr.shape[2]):
-                for l in range(arr.shape[3]):
-                    arr[i,j,k,l] = (i+1)*1000 + (j+1)*100 + (k+1)*10 + (l+1)
-        
-    info = [
-        axis('Axis1'), 
-        axis('Axis2', values=[1,2,3,4,5]), 
-        axis('Axis3', cols=[
-            ('Ax3Col1'),
-            ('Ax3Col2', 'mV', 'Axis3 Column2'),
-            (('Ax3','Col3'), 'A', 'Axis3 Column3')]),
-        {'name': 'Axis4', 'values': np.array([1.1, 1.2, 1.3, 1.4, 1.5]), 'units': 's'},
-        {'extra': 'info'}
-    ]
-    
-    ma = MetaArray(arr, info=info)
-    
-    print("====  Original Array =======")
-    print(ma)
-    print("\n\n")
-    
-    #### Tests follow:
-    
-    
-    #### Index/slice tests: check that all values and meta info are correct after slice
-    print("\n -- normal integer indexing\n")
-    
-    print("\n  ma[1]")
-    print(ma[1])
-    
-    print("\n  ma[1, 2:4]")
-    print(ma[1, 2:4])
-    
-    print("\n  ma[1, 1:5:2]")
-    print(ma[1, 1:5:2])
-    
-    print("\n -- named axis indexing\n")
-    
-    print("\n  ma['Axis2':3]")
-    print(ma['Axis2':3])
-    
-    print("\n  ma['Axis2':3:5]")
-    print(ma['Axis2':3:5])
-    
-    print("\n  ma[1, 'Axis2':3]")
-    print(ma[1, 'Axis2':3])
-    
-    print("\n  ma[:, 'Axis2':3]")
-    print(ma[:, 'Axis2':3])
-    
-    print("\n  ma['Axis2':3, 'Axis4':0:2]")
-    print(ma['Axis2':3, 'Axis4':0:2])
-    
-    
-    print("\n -- column name indexing\n")
-    
-    print("\n  ma['Axis3':'Ax3Col1']")
-    print(ma['Axis3':'Ax3Col1'])
-    
-    print("\n  ma['Axis3':('Ax3','Col3')]")
-    print(ma['Axis3':('Ax3','Col3')])
-    
-    print("\n  ma[:, :, 'Ax3Col2']")
-    print(ma[:, :, 'Ax3Col2'])
-    
-    print("\n  ma[:, :, ('Ax3','Col3')]")
-    print(ma[:, :, ('Ax3','Col3')])
-    
-    
-    print("\n -- axis value range indexing\n")
-    
-    print("\n  ma['Axis2':1.5:4.5]")
-    print(ma['Axis2':1.5:4.5])
-    
-    print("\n  ma['Axis4':1.15:1.45]")
-    print(ma['Axis4':1.15:1.45])
-    
-    print("\n  ma['Axis4':1.15:1.25]")
-    print(ma['Axis4':1.15:1.25])
-    
-    
-    
-    print("\n -- list indexing\n")
-    
-    print("\n  ma[:, [0,2,4]]")
-    print(ma[:, [0,2,4]])
-    
-    print("\n  ma['Axis4':[0,2,4]]")
-    print(ma['Axis4':[0,2,4]])
-    
-    print("\n  ma['Axis3':[0, ('Ax3','Col3')]]")
-    print(ma['Axis3':[0, ('Ax3','Col3')]])
-    
-    
-    
-    print("\n -- boolean indexing\n")
-    
-    print("\n  ma[:, array([True, True, False, True, False])]")
-    print(ma[:, np.array([True, True, False, True, False])])
-    
-    print("\n  ma['Axis4':array([True, False, False, False])]")
-    print(ma['Axis4':np.array([True, False, False, False])])
-    
-    
-    
-    
-    
-    #### Array operations 
-    #  - Concatenate
-    #  - Append
-    #  - Extend
-    #  - Rowsort
-    
-    
-    
-    
-    #### File I/O tests
-    
-    print("\n================  File I/O Tests  ===================\n")
-    import tempfile
-    tf = tempfile.mktemp()
-    tf = 'test.ma'
-    # write whole array
-    
-    print("\n  -- write/read test")
-    ma.write(tf)
-    ma2 = MetaArray(file=tf)
-    
-    #print ma2
-    print("\nArrays are equivalent:", (ma == ma2).all())
-    #print "Meta info is equivalent:", ma.infoCopy() == ma2.infoCopy()
-    os.remove(tf)
-    
-    # CSV write
-    
-    # append mode
-    
-    
-    print("\n================append test (%s)===============" % tf)
-    ma['Axis2':0:2].write(tf, appendAxis='Axis2')
-    for i in range(2,ma.shape[1]):
-        ma['Axis2':[i]].write(tf, appendAxis='Axis2')
-    
-    ma2 = MetaArray(file=tf)
-    
-    #print ma2
-    print("\nArrays are equivalent:", (ma == ma2).all())
-    #print "Meta info is equivalent:", ma.infoCopy() == ma2.infoCopy()
-    
-    os.remove(tf)    
-    
-    
-    
-    ## memmap test
-    print("\n==========Memmap test============")
-    ma.write(tf, mappable=True)
-    ma2 = MetaArray(file=tf, mmap=True)
-    print("\nArrays are equivalent:", (ma == ma2).all())
-    os.remove(tf)    
-    

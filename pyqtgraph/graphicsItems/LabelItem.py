@@ -1,13 +1,12 @@
-from ..Qt import QtGui, QtCore
 from .. import functions as fn
+from .. import getConfigOption
+from ..Qt import QtCore, QtWidgets, QtGui
 from .GraphicsWidget import GraphicsWidget
 from .GraphicsWidgetAnchor import GraphicsWidgetAnchor
-from .. import getConfigOption
-
 
 __all__ = ['LabelItem']
 
-class LabelItem(GraphicsWidget, GraphicsWidgetAnchor):
+class LabelItem(GraphicsWidgetAnchor, GraphicsWidget):
     """
     GraphicsWidget displaying text.
     Used mainly as axis labels, titles, etc.
@@ -19,7 +18,7 @@ class LabelItem(GraphicsWidget, GraphicsWidgetAnchor):
     def __init__(self, text=' ', parent=None, angle=0, **args):
         GraphicsWidget.__init__(self, parent)
         GraphicsWidgetAnchor.__init__(self)
-        self.item = QtGui.QGraphicsTextItem(self)
+        self.item = QtWidgets.QGraphicsTextItem(self)
         self.opts = {
             'color': None,
             'justify': 'center'
@@ -39,7 +38,8 @@ class LabelItem(GraphicsWidget, GraphicsWidgetAnchor):
 
         ==================== ==============================
         **Style Arguments:**
-        color                (str) example: 'CCFF00'
+        family               (str) example: 'Cantarell'
+        color                (str) example: '#CCFF00'
         size                 (str) example: '8pt'
         bold                 (bool)
         italic               (bool)
@@ -56,7 +56,9 @@ class LabelItem(GraphicsWidget, GraphicsWidgetAnchor):
         if color is None:
             color = getConfigOption('foreground')
         color = fn.mkColor(color)
-        optlist.append('color: #' + fn.colorStr(color)[:6])
+        optlist.append('color: ' + color.name(QtGui.QColor.NameFormat.HexArgb))
+        if 'family' in opts:
+            optlist.append('font-family: ' + opts['family'])
         if 'size' in opts:
             optlist.append('font-size: ' + opts['size'])
         if 'bold' in opts and opts['bold'] in [True, False]:
@@ -109,7 +111,7 @@ class LabelItem(GraphicsWidget, GraphicsWidgetAnchor):
     def setAngle(self, angle):
         self.angle = angle
         self.item.resetTransform()
-        self.item.rotate(angle)
+        self.item.setRotation(angle)
         self.updateMin()
         
         
@@ -119,10 +121,10 @@ class LabelItem(GraphicsWidget, GraphicsWidgetAnchor):
         self.setMinimumHeight(bounds.height())
         
         self._sizeHint = {
-            QtCore.Qt.MinimumSize: (bounds.width(), bounds.height()),
-            QtCore.Qt.PreferredSize: (bounds.width(), bounds.height()),
-            QtCore.Qt.MaximumSize: (-1, -1),  #bounds.width()*2, bounds.height()*2),
-            QtCore.Qt.MinimumDescent: (0, 0)  ##?? what is this?
+            QtCore.Qt.SizeHint.MinimumSize: (bounds.width(), bounds.height()),
+            QtCore.Qt.SizeHint.PreferredSize: (bounds.width(), bounds.height()),
+            QtCore.Qt.SizeHint.MaximumSize: (-1, -1),  #bounds.width()*2, bounds.height()*2),
+            QtCore.Qt.SizeHint.MinimumDescent: (0, 0)  ##?? what is this?
         }
         self.updateGeometry()
         

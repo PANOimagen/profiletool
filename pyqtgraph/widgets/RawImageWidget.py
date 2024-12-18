@@ -1,15 +1,19 @@
-# -*- coding: utf-8 -*-
 """
 RawImageWidget.py
 Copyright 2010-2016 Luke Campagnola
-Distributed under MIT/X11 license. See license.txt for more infomation.
+Distributed under MIT/X11 license. See license.txt for more information.
 """
 
-from ..Qt import QtCore, QtGui
+import numpy
+
+from .. import functions as fn
+from .. import functions_qimage
+from .. import getConfigOption, getCupy
+from ..Qt import QtCore, QtGui, QtWidgets
 
 try:
-    from ..Qt import QtOpenGL
-    from OpenGL.GL import *
+    QOpenGLWidget = QtWidgets.QOpenGLWidget
+    from OpenGL.GL import *  # noqa
 
     HAVE_OPENGL = True
 except (ImportError, AttributeError):
@@ -17,10 +21,9 @@ except (ImportError, AttributeError):
     # AttributeError upon import
     HAVE_OPENGL = False
 
-from .. import getConfigOption, functions as fn
+__all__ = ['RawImageWidget']
 
-
-class RawImageWidget(QtGui.QWidget):
+class RawImageWidget(QtWidgets.QWidget):
     """
     Widget optimized for very fast video display.
     Generally using an ImageItem inside GraphicsView is fast enough.
@@ -32,17 +35,20 @@ class RawImageWidget(QtGui.QWidget):
         Setting scaled=True will cause the entire image to be displayed within the boundaries of the widget.
         This also greatly reduces the speed at which it will draw frames.
         """
-        QtGui.QWidget.__init__(self, parent)
-        self.setSizePolicy(QtGui.QSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding))
+        QtWidgets.QWidget.__init__(self, parent)
+        self.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Expanding))
         self.scaled = scaled
         self.opts = None
         self.image = None
+        self._cp = getCupy()
 
     def setImage(self, img, *args, **kargs):
         """
         img must be ndarray of shape (x,y), (x,y,3), or (x,y,4).
         Extra arguments are sent to functions.makeARGB
         """
+        if getConfigOption('imageAxisOrder') == 'col-major':
+            img = img.swapaxes(0, 1)
         self.opts = (img, args, kargs)
         self.image = None
         self.update()
@@ -51,8 +57,35 @@ class RawImageWidget(QtGui.QWidget):
         if self.opts is None:
             return
         if self.image is None:
-            argb, alpha = fn.makeARGB(self.opts[0], *self.opts[1], **self.opts[2])
-            self.image = fn.makeQImage(argb, alpha)
+            img = self.opts[0]
+            xp = self._cp.get_array_module(img) if self._cp else numpy
+
+            qimage = None
+            if (
+                not self.opts[1]    # no positional arguments
+                and {"levels", "lut"}.issuperset(self.opts[2])  # no kwargs besides levels and lut
+            ):
+                transparentLocations = None
+                if img.dtype.kind == "f" and xp.isnan(img.min()):
+                    nanmask = xp.isnan(img)
+                    if nanmask.ndim == 3:
+                        nanmask = nanmask.any(axis=2)
+                    transparentLocations = nanmask.nonzero()
+
+                qimage = functions_qimage.try_make_qimage(
+                    img,
+                    levels=self.opts[2].get("levels"),
+                    lut=self.opts[2].get("lut"),
+                    transparentLocations=transparentLocations
+                )
+
+            if qimage is None:
+                argb, alpha = fn.makeARGB(self.opts[0], *self.opts[1], **self.opts[2])
+                if self._cp and self._cp.get_array_module(argb) == self._cp:
+                    argb = argb.get()  # transfer GPU data back to the CPU
+                qimage = fn.ndarray_to_qimage(argb, QtGui.QImage.Format.Format_ARGB32)
+
+            self.image = qimage
             self.opts = ()
         # if self.pixmap is None:
             # self.pixmap = QtGui.QPixmap.fromImage(self.image)
@@ -74,28 +107,30 @@ class RawImageWidget(QtGui.QWidget):
 
 
 if HAVE_OPENGL:
-    class RawImageGLWidget(QtOpenGL.QGLWidget):
+    __all__.append('RawImageGLWidget')
+    class RawImageGLWidget(QOpenGLWidget):
         """
         Similar to RawImageWidget, but uses a GL widget to do all drawing.
-        Perfomance varies between platforms; see examples/VideoSpeedTest for benchmarking.
+        Performance varies between platforms; see examples/VideoSpeedTest for benchmarking.
 
         Checks if setConfigOptions(imageAxisOrder='row-major') was set.
         """
 
         def __init__(self, parent=None, scaled=False):
-            QtOpenGL.QGLWidget.__init__(self, parent)
+            QOpenGLWidget.__init__(self, parent)
             self.scaled = scaled
             self.image = None
             self.uploaded = False
             self.smooth = False
             self.opts = None
-            self.row_major = getConfigOption('imageAxisOrder') == 'row-major'
 
         def setImage(self, img, *args, **kargs):
             """
             img must be ndarray of shape (x,y), (x,y,3), or (x,y,4).
             Extra arguments are sent to functions.makeARGB
             """
+            if getConfigOption('imageAxisOrder') == 'col-major':
+                img = img.swapaxes(0, 1)
             self.opts = (img, args, kargs)
             self.image = None
             self.uploaded = False
@@ -117,32 +152,30 @@ if HAVE_OPENGL:
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER)
             # glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER)
 
-            if self.row_major:
-                image = self.image
-            else:
-                image = self.image.transpose((1, 0, 2))
-
-            # ## Test texture dimensions first
+            ## Test texture dimensions first
             # shape = self.image.shape
             # glTexImage2D(GL_PROXY_TEXTURE_2D, 0, GL_RGBA, shape[0], shape[1], 0, GL_RGBA, GL_UNSIGNED_BYTE, None)
             # if glGetTexLevelParameteriv(GL_PROXY_TEXTURE_2D, 0, GL_TEXTURE_WIDTH) == 0:
-            # raise Exception("OpenGL failed to create 2D texture (%dx%d); too large for this hardware." % shape[:2])
+                # raise Exception("OpenGL failed to create 2D texture (%dx%d); too large for this hardware." % shape[:2])
 
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.shape[1], image.shape[0], 0, GL_RGBA, GL_UNSIGNED_BYTE, image)
+            h, w = self.image.shape[:2]
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, self.image)
             glDisable(GL_TEXTURE_2D)
+            self.uploaded = True
 
         def paintGL(self):
+            glClear(GL_COLOR_BUFFER_BIT)
+
             if self.image is None:
                 if self.opts is None:
                     return
                 img, args, kwds = self.opts
                 kwds['useRGBA'] = True
-                self.image, alpha = fn.makeARGB(img, *args, **kwds)
+                self.image, _ = fn.makeARGB(img, *args, **kwds)
 
             if not self.uploaded:
                 self.uploadTexture()
 
-            glViewport(0, 0, self.width() * self.devicePixelRatio(), self.height() * self.devicePixelRatio())
             glEnable(GL_TEXTURE_2D)
             glBindTexture(GL_TEXTURE_2D, self.texture)
             glColor4f(1, 1, 1, 1)
@@ -157,4 +190,4 @@ if HAVE_OPENGL:
             glTexCoord2f(0, 0)
             glVertex3f(-1, 1, 0)
             glEnd()
-            glDisable(GL_TEXTURE_3D)
+            glDisable(GL_TEXTURE_2D)

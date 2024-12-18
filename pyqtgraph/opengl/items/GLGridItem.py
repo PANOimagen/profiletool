@@ -1,21 +1,21 @@
+from OpenGL.GL import *  # noqa
 import numpy as np
 
-from OpenGL.GL import *
-from .. GLGraphicsItem import GLGraphicsItem
 from ... import QtGui
 from ... import functions as fn
+from ..GLGraphicsItem import GLGraphicsItem
 
 __all__ = ['GLGridItem']
 
 class GLGridItem(GLGraphicsItem):
     """
-    **Bases:** :class:`GLGraphicsItem <pyqtgraph.opengl.GLGraphicsItem>`
+    **Bases:** :class:`GLGraphicsItem <pyqtgraph.opengl.GLGraphicsItem.GLGraphicsItem>`
     
     Displays a wire-frame grid. 
     """
     
-    def __init__(self, size=None, color=(255, 255, 255, 76.5), antialias=True, glOptions='translucent'):
-        GLGraphicsItem.__init__(self)
+    def __init__(self, size=None, color=(255, 255, 255, 76.5), antialias=True, glOptions='translucent', parentItem=None):
+        super().__init__(parentItem=parentItem)
         self.setGLOptions(glOptions)
         self.antialias = antialias
         if size is None:
@@ -56,7 +56,7 @@ class GLGridItem(GLGraphicsItem):
         
     def setColor(self, color):
         """Set the color of the grid. Arguments are the same as those accepted by functions.mkColor()"""
-        self.__color = fn.Color(color)
+        self.__color = fn.mkColor(color)
         self.update()
 
     def color(self):
@@ -77,7 +77,7 @@ class GLGridItem(GLGraphicsItem):
         xs,ys,zs = self.spacing()
         xvals = np.arange(-x/2., x/2. + xs*0.001, xs) 
         yvals = np.arange(-y/2., y/2. + ys*0.001, ys)
-        glColor4f(*self.color().glColor())
+        glColor4f(*self.color().getRgbF())
         for x in xvals:
             glVertex3f(x, yvals[0], 0)
             glVertex3f(x,  yvals[-1], 0)

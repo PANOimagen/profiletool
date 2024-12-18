@@ -44,7 +44,9 @@ def slopes_pct(p):
     x = np.array(p["l"], dtype=float)
     y = np.array(p["z"], dtype=float)
     slope_pct = 100.0 * (y[1:] - y[:-1]) / (x[1:] - x[:-1])
-    slope_pct = np.concatenate((slope_pct[0:1], 0.5 * (slope_pct[1:] + slope_pct[:-1]), slope_pct[-1:]))
+    slope_pct = np.concatenate(
+        (slope_pct[0:1], 0.5 * (slope_pct[1:] + slope_pct[:-1]), slope_pct[-1:])
+    )
     slope_pct[np.isnan(slope_pct)] = 0
     slope_pct[np.isinf(slope_pct)] = 0
     return x, slope_pct

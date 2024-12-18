@@ -32,10 +32,9 @@ from qgis.core import *
 from qgis.PyQt.QtCore import QCoreApplication
 
 from .utils import isProfilable
-from qgis.PyQt.QtCore import QCoreApplication
+
 
 class DataReaderTool:
-
     """def __init__(self):
     self.profiles = None"""
 
@@ -67,7 +66,9 @@ class DataReaderTool:
         for p_start, p_end in zip(self.pointstoDraw[:-1], self.pointstoDraw[1:]):
 
             # for each polylines, set points x,y with map crs (%D) and layer crs (%C)
-            pointstoCal1 = self.tool.toLayerCoordinates(self.profiles["layer"], QgsPointXY(*p_start))
+            pointstoCal1 = self.tool.toLayerCoordinates(
+                self.profiles["layer"], QgsPointXY(*p_start)
+            )
             pointstoCal2 = self.tool.toLayerCoordinates(self.profiles["layer"], QgsPointXY(*p_end))
             x1D = float(p_start[0])
             y1D = float(p_start[1])
@@ -82,13 +83,19 @@ class DataReaderTool:
             # Set the res of calcul
             try:
                 res = (
-                    min(self.profiles["layer"].rasterUnitsPerPixelX(), self.profiles["layer"].rasterUnitsPerPixelY())
+                    min(
+                        self.profiles["layer"].rasterUnitsPerPixelX(),
+                        self.profiles["layer"].rasterUnitsPerPixelY(),
+                    )
                     * tlC
                     / max(abs(x2C - x1C), abs(y2C - y1C))
                 )  # res depend on the angle of ligne with normal
             except ZeroDivisionError:
                 res = (
-                    min(self.profiles["layer"].rasterUnitsPerPixelX(), self.profiles["layer"].rasterUnitsPerPixelY())
+                    min(
+                        self.profiles["layer"].rasterUnitsPerPixelX(),
+                        self.profiles["layer"].rasterUnitsPerPixelY(),
+                    )
                     * 1.2
                 )
             except AttributeError:
@@ -189,7 +196,9 @@ class DataReaderTool:
         else:  # RASTER LAYERS
             for n, coords in enumerate(zip(x, y)):
                 # this code adapted from valuetool plugin
-                ident = layer.dataProvider().identify(QgsPointXY(*coords), QgsRaster.IdentifyFormatValue)
+                ident = layer.dataProvider().identify(
+                    QgsPointXY(*coords), QgsRaster.IdentifyFormat.IdentifyFormatValue
+                )
                 # if ident is not None and ident.has_key(choosenBand+1):
                 if ident is not None and (choosenBand in ident.results()):
                     attr = ident.results()[choosenBand]
@@ -231,7 +240,9 @@ class DataReaderTool:
         projectedpoints = []
         buffergeom = None
 
-        sourceCrs = QgsCoordinateReferenceSystem(qgis.utils.iface.mapCanvas().mapSettings().destinationCrs())
+        sourceCrs = QgsCoordinateReferenceSystem(
+            qgis.utils.iface.mapCanvas().mapSettings().destinationCrs()
+        )
         destCrs = QgsCoordinateReferenceSystem(profile1["layer"].crs())
         if qgis.core.Qgis.QGIS_VERSION[0] > "2":
             # In QGIS 3 QgsCoordinateTransform needs a QgsCoordinateTransformContext
@@ -241,7 +252,9 @@ class DataReaderTool:
             xform = QgsCoordinateTransform(sourceCrs, destCrs)
             xformrev = QgsCoordinateTransform(destCrs, sourceCrs)
 
-        geom = qgis.core.QgsGeometry.fromPolylineXY([QgsPointXY(point[0], point[1]) for point in pointstoDraw1])
+        geom = qgis.core.QgsGeometry.fromPolylineXY(
+            [QgsPointXY(point[0], point[1]) for point in pointstoDraw1]
+        )
 
         geominlayercrs = qgis.core.QgsGeometry(geom)
         tempresult = geominlayercrs.transform(xform)
@@ -250,7 +263,9 @@ class DataReaderTool:
         buffergeominlayercrs = qgis.core.QgsGeometry(buffergeom)
         tempresult = buffergeominlayercrs.transform(xform)
 
-        featsPnt = profile1["layer"].getFeatures(QgsFeatureRequest().setFilterRect(buffergeominlayercrs.boundingBox()))
+        featsPnt = profile1["layer"].getFeatures(
+            QgsFeatureRequest().setFilterRect(buffergeominlayercrs.boundingBox())
+        )
 
         for featPnt in featsPnt:
             # iterate preselected point features and perform exact check with current polygon
@@ -448,9 +463,21 @@ class DataReaderTool:
             lentemp = lenpoly - projectedpoints[previouspointindex][0]
             z = (
                 projectedpoints[previouspointindex][5]
-                + (projectedpoints[nextpointindex][5] - projectedpoints[previouspointindex][5]) / lentot * lentemp
+                + (projectedpoints[nextpointindex][5] - projectedpoints[previouspointindex][5])
+                / lentot
+                * lentemp
             )
             # return [lenpoly, point[0], point[1], -1, None ,z,point[0], point[1], None ]
-            return [lenpoly, vertexpoint.x(), vertexpoint.y(), -1, None, z, vertexpoint.x(), vertexpoint.y(), None]
+            return [
+                lenpoly,
+                vertexpoint.x(),
+                vertexpoint.y(),
+                -1,
+                None,
+                z,
+                vertexpoint.x(),
+                vertexpoint.y(),
+                None,
+            ]
         else:
             return None

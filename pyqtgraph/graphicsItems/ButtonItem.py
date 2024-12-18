@@ -1,4 +1,4 @@
-from ..Qt import QtGui, QtCore
+from ..Qt import QtCore, QtGui
 from .GraphicsObject import GraphicsObject
 
 __all__ = ['ButtonItem']
@@ -14,10 +14,11 @@ class ButtonItem(GraphicsObject):
             self.setImageFile(imageFile)
         elif pixmap is not None:
             self.setPixmap(pixmap)
-            
-        if width is not None:
-            s = float(width) / self.pixmap.width()
-            self.scale(s, s)
+
+        self._width = width
+        if self._width is None:
+            self._width = self.pixmap.width() / self.pixmap.devicePixelRatio()
+
         if parentItem is not None:
             self.setParentItem(parentItem)
         self.setOpacity(0.7)
@@ -33,12 +34,12 @@ class ButtonItem(GraphicsObject):
         if self.enabled:
             self.clicked.emit(self)
         
-    def mouseHoverEvent(self, ev):
+    def hoverEvent(self, ev):
         if not self.enabled:
             return
         if ev.isEnter():
             self.setOpacity(1.0)
-        else:
+        elif ev.isExit():
             self.setOpacity(0.7)
 
     def disable(self):
@@ -50,9 +51,11 @@ class ButtonItem(GraphicsObject):
         self.setOpacity(0.7)
         
     def paint(self, p, *args):
-        p.setRenderHint(p.Antialiasing)
-        p.drawPixmap(0, 0, self.pixmap)
+        p.setRenderHint(p.RenderHint.Antialiasing)
+        tgtRect = QtCore.QRectF(0, 0, self._width, self._width)
+        srcRect = QtCore.QRectF(self.pixmap.rect())
+        p.drawPixmap(tgtRect, self.pixmap, srcRect)
         
     def boundingRect(self):
-        return QtCore.QRectF(self.pixmap.rect())
+        return QtCore.QRectF(0, 0, self._width, self._width)
         

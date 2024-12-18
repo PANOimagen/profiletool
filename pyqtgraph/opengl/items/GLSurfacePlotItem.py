@@ -1,10 +1,8 @@
-from OpenGL.GL import *
-from .GLMeshItem import GLMeshItem
-from .. MeshData import MeshData
-from ...Qt import QtGui
+from OpenGL.GL import *  # noqa
 import numpy as np
 
-
+from ..MeshData import MeshData
+from .GLMeshItem import GLMeshItem
 
 __all__ = ['GLSurfacePlotItem']
 
@@ -14,7 +12,7 @@ class GLSurfacePlotItem(GLMeshItem):
     
     Displays a surface plot on a regular x,y grid
     """
-    def __init__(self, x=None, y=None, z=None, colors=None, **kwds):
+    def __init__(self, x=None, y=None, z=None, colors=None, parentItem=None, **kwds):
         """
         The x, y, z, and colors arguments are passed to setData().
         All other keyword arguments are passed to GLMeshItem.__init__().
@@ -26,7 +24,7 @@ class GLSurfacePlotItem(GLMeshItem):
         self._color = None
         self._vertexes = None
         self._meshdata = MeshData()
-        GLMeshItem.__init__(self, meshdata=self._meshdata, **kwds)
+        super().__init__(parentItem=parentItem, meshdata=self._meshdata, **kwds)
         
         self.setData(x, y, z, colors)
         

@@ -1,18 +1,24 @@
-# -*- coding: utf-8 -*-
-from ..Qt import QtCore, QtGui
+__all__ = ["DockDrop"]
 
-class DockDrop(object):
+from ..Qt import QtCore, QtGui, QtWidgets
+
+
+class DockDrop:
     """Provides dock-dropping methods"""
-    def __init__(self, allowedAreas=None):
-        object.__init__(self)
-        if allowedAreas is None:
-            allowedAreas = ['center', 'right', 'left', 'top', 'bottom']
-        self.allowedAreas = set(allowedAreas)
-        self.setAcceptDrops(True)
+    def __init__(self, dndWidget):
+        self.dndWidget = dndWidget
+        self.allowedAreas = {'center', 'right', 'left', 'top', 'bottom'}
+        self.dndWidget.setAcceptDrops(True)
         self.dropArea = None
-        self.overlay = DropAreaOverlay(self)
+        self.overlay = DropAreaOverlay(dndWidget)
         self.overlay.raise_()
-    
+
+    def addAllowedArea(self, area):
+        self.allowedAreas.update(area)
+
+    def removeAllowedArea(self, area):
+        self.allowedAreas.discard(area)
+
     def resizeOverlay(self, size):
         self.overlay.resize(size)
         
@@ -30,17 +36,21 @@ class DockDrop(object):
         
     def dragMoveEvent(self, ev):
         #print "drag move"
-        ld = ev.pos().x()
-        rd = self.width() - ld
-        td = ev.pos().y()
-        bd = self.height() - td
+        # QDragMoveEvent inherits QDropEvent which provides posF()
+        # PyQt6 provides only position()
+        width, height = self.dndWidget.width(), self.dndWidget.height()
+        posF = ev.posF() if hasattr(ev, 'posF') else ev.position()
+        ld = posF.x()
+        rd = width - ld
+        td = posF.y()
+        bd = height - td
         
         mn = min(ld, rd, td, bd)
         if mn > 30:
             self.dropArea = "center"
-        elif (ld == mn or td == mn) and mn > self.height()/3.:
+        elif (ld == mn or td == mn) and mn > height/3:
             self.dropArea = "center"
-        elif (rd == mn or ld == mn) and mn > self.width()/3.:
+        elif (rd == mn or ld == mn) and mn > width/3:
             self.dropArea = "center"
             
         elif rd == mn:
@@ -52,7 +62,7 @@ class DockDrop(object):
         elif bd == mn:
             self.dropArea = "bottom"
             
-        if ev.source() is self and self.dropArea == 'center':
+        if ev.source() is self.dndWidget and self.dropArea == 'center':
             #print "  no self-center"
             self.dropArea = None
             ev.ignore()
@@ -75,20 +85,20 @@ class DockDrop(object):
             return
         if area == 'center':
             area = 'above'
-        self.area.moveDock(ev.source(), area, self)
+        self.dndWidget.area.moveDock(ev.source(), area, self.dndWidget)
         self.dropArea = None
         self.overlay.setDropArea(self.dropArea)
 
         
 
-class DropAreaOverlay(QtGui.QWidget):
+class DropAreaOverlay(QtWidgets.QWidget):
     """Overlay widget that draws drop areas during a drag-drop operation"""
     
     def __init__(self, parent):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.dropArea = None
         self.hide()
-        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        self.setAttribute(QtCore.Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         
     def setDropArea(self, area):
         self.dropArea = area
@@ -99,8 +109,8 @@ class DropAreaOverlay(QtGui.QWidget):
             ## This works around a Qt bug--can't display transparent widgets over QGLWidget
             prgn = self.parent().rect()
             rgn = QtCore.QRect(prgn)
-            w = min(30, prgn.width()/3.)
-            h = min(30, prgn.height()/3.)
+            w = min(30, int(prgn.width() / 3))
+            h = min(30, int(prgn.height() / 3))
             
             if self.dropArea == 'left':
                 rgn.setWidth(w)
@@ -126,3 +136,4 @@ class DropAreaOverlay(QtGui.QWidget):
         p.setBrush(QtGui.QBrush(QtGui.QColor(100, 100, 255, 50)))
         p.setPen(QtGui.QPen(QtGui.QColor(50, 50, 150), 3))
         p.drawRect(rgn)
+        p.end()

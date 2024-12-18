@@ -21,6 +21,21 @@
     </sizepolicy>
    </property>
    <layout class="QVBoxLayout" name="verticalLayout">
+    <property name="spacing">
+     <number>6</number>
+    </property>
+    <property name="leftMargin">
+     <number>3</number>
+    </property>
+    <property name="topMargin">
+     <number>3</number>
+    </property>
+    <property name="rightMargin">
+     <number>3</number>
+    </property>
+    <property name="bottomMargin">
+     <number>3</number>
+    </property>
     <item>
      <widget class="QTabWidget" name="tabWidget">
       <property name="autoFillBackground">
@@ -52,6 +67,21 @@
         <string>&amp;Profile</string>
        </attribute>
        <layout class="QHBoxLayout" name="horizontalLayout_5">
+        <property name="spacing">
+         <number>6</number>
+        </property>
+        <property name="leftMargin">
+         <number>6</number>
+        </property>
+        <property name="topMargin">
+         <number>6</number>
+        </property>
+        <property name="rightMargin">
+         <number>6</number>
+        </property>
+        <property name="bottomMargin">
+         <number>6</number>
+        </property>
         <item>
          <widget class="QSplitter" name="splitter">
           <property name="orientation">
@@ -65,8 +95,26 @@
             <enum>QFrame::Raised</enum>
            </property>
            <layout class="QGridLayout" name="gridLayout_3">
+            <property name="leftMargin">
+             <number>6</number>
+            </property>
+            <property name="topMargin">
+             <number>6</number>
+            </property>
+            <property name="rightMargin">
+             <number>6</number>
+            </property>
+            <property name="bottomMargin">
+             <number>6</number>
+            </property>
+            <property name="spacing">
+             <number>6</number>
+            </property>
             <item row="0" column="1">
              <layout class="QVBoxLayout" name="verticalLayout_5">
+              <property name="spacing">
+               <number>3</number>
+              </property>
               <item>
                <widget class="QDoubleSpinBox" name="sbMaxVal">
                 <property name="keyboardTracking">
@@ -145,7 +193,20 @@
               <property name="frameShadow">
                <enum>QFrame::Raised</enum>
               </property>
-              <layout class="QVBoxLayout" name="verticalLayout_4"/>
+              <layout class="QVBoxLayout" name="verticalLayout_4">
+               <property name="leftMargin">
+                <number>6</number>
+               </property>
+               <property name="topMargin">
+                <number>6</number>
+               </property>
+               <property name="rightMargin">
+                <number>6</number>
+               </property>
+               <property name="bottomMargin">
+                <number>6</number>
+               </property>
+              </layout>
              </widget>
             </item>
             <item row="1" column="0" colspan="2">
@@ -205,7 +266,20 @@
                   <number>0</number>
                  </property>
                  <widget class="QWidget" name="page">
-                  <layout class="QHBoxLayout" name="horizontalLayout_4"/>
+                  <layout class="QHBoxLayout" name="horizontalLayout_4">
+                   <property name="leftMargin">
+                    <number>6</number>
+                   </property>
+                   <property name="topMargin">
+                    <number>6</number>
+                   </property>
+                   <property name="rightMargin">
+                    <number>6</number>
+                   </property>
+                   <property name="bottomMargin">
+                    <number>6</number>
+                   </property>
+                  </layout>
                  </widget>
                 </widget>
                </item>
@@ -269,6 +343,18 @@
             <enum>QFrame::Raised</enum>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_3">
+            <property name="leftMargin">
+             <number>6</number>
+            </property>
+            <property name="topMargin">
+             <number>6</number>
+            </property>
+            <property name="rightMargin">
+             <number>6</number>
+            </property>
+            <property name="bottomMargin">
+             <number>6</number>
+            </property>
             <item>
              <widget class="QTableView" name="tableView">
               <property name="sizePolicy">
@@ -417,6 +503,19 @@ on graph with canvas</string>
                  </property>
                 </widget>
                </item>
+               <item row="2" column="1">
+                <widget class="QCheckBox" name="cbLiveUpdate">
+                 <property name="toolTip">
+                  <string>Update graph while capturing. Disable if using huge dataset.</string>
+                 </property>
+                 <property name="text">
+                  <string>Live update</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
               </layout>
              </widget>
             </item>
@@ -441,8 +540,8 @@ on graph with canvas</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>879</width>
-             <height>294</height>
+             <width>889</width>
+             <height>306</height>
             </rect>
            </property>
           </widget>

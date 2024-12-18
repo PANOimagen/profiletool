@@ -1,7 +1,7 @@
-from OpenGL.GL import *
-from .. GLGraphicsItem import GLGraphicsItem
-from ...Qt import QtGui
+from OpenGL.GL import *  # noqa
 from ... import functions as fn
+from ...Qt import QtGui
+from ..GLGraphicsItem import GLGraphicsItem
 
 __all__ = ['GLBoxItem']
 
@@ -11,8 +11,8 @@ class GLBoxItem(GLGraphicsItem):
     
     Displays a wire-frame box.
     """
-    def __init__(self, size=None, color=None, glOptions='translucent'):
-        GLGraphicsItem.__init__(self)
+    def __init__(self, size=None, color=None, glOptions='translucent', parentItem=None):
+        super().__init__(parentItem=parentItem)
         if size is None:
             size = QtGui.QVector3D(1,1,1)
         self.setSize(size=size)
@@ -38,7 +38,7 @@ class GLBoxItem(GLGraphicsItem):
     
     def setColor(self, *args):
         """Set the color of the box. Arguments are the same as those accepted by functions.mkColor()"""
-        self.__color = fn.Color(*args)
+        self.__color = fn.mkColor(*args)
         
     def color(self):
         return self.__color
@@ -54,7 +54,7 @@ class GLBoxItem(GLGraphicsItem):
         
         glBegin( GL_LINES )
         
-        glColor4f(*self.color().glColor())
+        glColor4f(*self.color().getRgbF())
         x,y,z = self.size()
         glVertex3f(0, 0, 0)
         glVertex3f(0, 0, z)
@@ -84,5 +84,3 @@ class GLBoxItem(GLGraphicsItem):
         glVertex3f(x, y, z)
         
         glEnd()
-        
-        

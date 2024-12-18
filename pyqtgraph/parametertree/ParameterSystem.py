@@ -1,5 +1,7 @@
-from .parameterTypes import GroupParameter
+__all__ = ["ParameterSystem", "SystemSolver"]
+
 from .. import functions as fn
+from .parameterTypes import GroupParameter
 from .SystemSolver import SystemSolver
 
 
@@ -60,24 +62,12 @@ class ParameterSystem(GroupParameter):
     def updateSystem(self, param, changes):
         changes = [ch for ch in changes if ch[0] not in self._ignoreChange]
         
-        #resets = [ch[0] for ch in changes if ch[1] == 'setToDefault']
         sets = [ch[0] for ch in changes if ch[1] == 'value']
-        #for param in resets:
-            #setattr(self._system, param.name(), None)
 
         for param in sets:
-            #if param in resets:
-                #continue
-            
-            #if param in self._fixParams:
-                #param.parent().setWritable(param.value())
-            #else:
             if param in self._fixParams:
                 parent = param.parent()
-                if param.value():
-                    setattr(self._system, parent.name(), parent.value())
-                else:
-                    setattr(self._system, parent.name(), None)
+                setattr(self._system, parent.name(), parent.value() if parent.hasValue() else None)
             else:
                 setattr(self._system, param.name(), param.value())
             
@@ -113,6 +103,8 @@ class ParameterSystem(GroupParameter):
             bg = fn.mkBrush('y')
             bold = True
             readonly = False
+        else:
+            raise ValueError("'state' must be one of 'autoSet', 'autoUnset', or 'fixed'")
             
         param.setReadonly(readonly)
         
@@ -124,4 +116,3 @@ class ParameterSystem(GroupParameter):
             
             
             
-
