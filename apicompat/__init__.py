@@ -6,15 +6,15 @@ import qgis.utils
 # Dealing with a QGIS 2 version, monkey patch some things
 # also guard with initialized so monkeypatching happens only once
 initialized = False
-if not initialized and hasattr(qgis.utils, 'QGis'):
+if not initialized and hasattr(qgis.utils, "QGis"):
     initialized = True
     # log('Running apicompat on QGIS version %s' % QGIS_VERSION)
 
     # Here import all the compatibility fixes modules
-    import qgswkbtypes
-    import qgsproject
-    import qgspointxy
-    import qgsmaplayer
-    import qgsgeometry
     import qgiscoreqgis
     import qgisutilsqgis
+    import qgsgeometry
+    import qgsmaplayer
+    import qgspointxy
+    import qgsproject
+    import qgswkbtypes
