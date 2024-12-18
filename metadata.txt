@@ -1,15 +1,21 @@
 [general]
 name=Profile tool
-qgisMinimumVersion=3.16
+qgisMinimumVersion=3.40
 qgisMaximumVersion=3.99
 description=Plots terrain profile
 about=This tool plots profile lines from raster layers or point vector layer with elevation field. Supports multiple lines as well as graph export to svg, pdf, png or csv file. Supports 3D polyline export to dxf. 
 category=Raster
-version=4.2.6
+version=4.3.0
 author=Borys Jurgiel - Patrice Verchere - Etienne Tourigny - Javier Becerra
 email=javier@panoimagen.com
+supportsQt6=True
+experimental=True
+deprecated=False
 
 changelog=
+    4.3.0 : Experimental for now as I might have break things...
+        - Upgrade pyqtgraph to 0.13.7
+        - Compatibility with Qt6
     4.2.6 : Fix for Numpy >= 1.24
     4.2.5 : Fix for Python 3.11 (#84 Thanks @JaviBecerra)
     4.2.4 : Add german translation (#80 Thanks @Brigggi)
@@ -71,6 +77,3 @@ homepage=https://github.com/PANOimagen/profiletool
 tracker=https://github.com/PANOimagen/profiletool/issues
 repository=https://github.com/PANOimagen/profiletool
 icon=icons/profileIcon.png
-
-experimental=False
-deprecated=False
