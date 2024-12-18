@@ -59,9 +59,7 @@ class ProfiletoolMapToolRenderer:
         self.rubberbandbuf.setWidth(1)
         self.rubberbandbuf.setColor(QColor(Qt.GlobalColor.blue))
 
-        self.textquit0 = (
-            "Click for polyline and double click to end (right click to cancel then quit)"
-        )
+        self.textquit0 = "Left click for polyline and right click to end (Right click to clear)"
         self.textquit1 = "Select the polyline feature in a vector layer (Right click to quit)"
         self.textquit2 = "Select the polyline vector layer (Right click to quit)"
 
@@ -88,9 +86,6 @@ class ProfiletoolMapToolRenderer:
         if self.selectionmethod in (1, 2):
             return
 
-    # def rightClicked(self, position):  # used to quit the current action
-    #     self.profiletool.clearProfil()
-    #     self.cleaning()
     def rightClicked(self, position):  # used to quit the current action
         if self.selectionmethod == 0:
             if self.isPlotting:
@@ -121,6 +116,7 @@ class ProfiletoolMapToolRenderer:
             self.pointstoDraw += newPoints
             if self.profiletool.liveUpdate:
                 self.profiletool.updateProfil(self.pointstoDraw)
+            self.iface.mainWindow().statusBar().showMessage(self.textquit0)
         if self.selectionmethod in (1, 2):
             if self.selectionmethod == 1:
                 method = "feature"

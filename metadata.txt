@@ -16,6 +16,8 @@ changelog=
     4.3.0 : Experimental for now as I might have break things...
         - Upgrade pyqtgraph to 0.13.7
         - Compatibility with Qt6
+        - Option to disable live graph update
+        - Change left and right click behavior with temporary polyline (match behavior with profile core tool)
     4.2.6 : Fix for Numpy >= 1.24
     4.2.5 : Fix for Python 3.11 (#84 Thanks @JaviBecerra)
     4.2.4 : Add german translation (#80 Thanks @Brigggi)
