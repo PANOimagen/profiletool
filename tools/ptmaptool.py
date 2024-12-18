@@ -41,6 +41,7 @@ class ProfiletoolMapToolRenderer:
         )  # the mouselistener
         self.pointstoDraw = []  # Polyline being drawn in freehand mode
         self.dblclktemp = None  # enable disctinction between leftclick and doubleclick
+        self.isPlotting = False
         # the rubberband
         self.rubberband = QgsRubberBand(
             self.iface.mapCanvas(), QgsWkbTypes.GeometryType.LineGeometry
@@ -69,6 +70,11 @@ class ProfiletoolMapToolRenderer:
     def resetRubberBand(self):
         self.rubberband.reset(QgsWkbTypes.GeometryType.LineGeometry)
 
+    def updateRubberBand(self):
+        self.resetRubberBand()
+        for i in range(0, len(self.pointstoDraw)):
+            self.rubberband.addPoint(QgsPointXY(self.pointstoDraw[i][0], self.pointstoDraw[i][1]))
+
     def moved(self, position):  # draw the polyline on the temp layer (rubberband)
         if self.selectionmethod == 0:
             if len(self.pointstoDraw) > 0:
@@ -77,18 +83,29 @@ class ProfiletoolMapToolRenderer:
                     position["x"], position["y"]
                 )
                 # Draw on temp layer
-                self.resetRubberBand()
-                for i in range(0, len(self.pointstoDraw)):
-                    self.rubberband.addPoint(
-                        QgsPointXY(self.pointstoDraw[i][0], self.pointstoDraw[i][1])
-                    )
+                self.updateRubberBand()
                 self.rubberband.addPoint(QgsPointXY(mapPos.x(), mapPos.y()))
         if self.selectionmethod in (1, 2):
             return
 
+    # def rightClicked(self, position):  # used to quit the current action
+    #     self.profiletool.clearProfil()
+    #     self.cleaning()
     def rightClicked(self, position):  # used to quit the current action
-        self.profiletool.clearProfil()
-        self.cleaning()
+        if self.selectionmethod == 0:
+            if self.isPlotting:
+                self.updateRubberBand()
+                self.isPlotting = False
+                # launch analyses
+                self.iface.mainWindow().statusBar().showMessage(str(self.pointstoDraw))
+                self.profiletool.updateProfil(self.pointstoDraw)
+                # Reset
+                self.pointstoDraw = []
+            else:
+                self.profiletool.clearProfil()
+                self.cleaning()
+        if self.selectionmethod in (1, 2):
+            return
 
     def leftClicked(self, position):  # Add point to analyse
         mapPos = self.canvas.getCoordinateTransform().toMapCoordinates(position["x"], position["y"])
@@ -97,15 +114,12 @@ class ProfiletoolMapToolRenderer:
             self.rubberbandpoint.hide()
 
         if self.selectionmethod == 0:
-            if newPoints == self.dblclktemp:
-                self.dblclktemp = None
-                return
-            else:
-                if len(self.pointstoDraw) == 0:
-                    self.resetRubberBand()
-                    self.rubberbandbuf.reset()
-                self.pointstoDraw += newPoints
-                self.profiletool.updateProfil(self.pointstoDraw)
+            if not self.isPlotting:
+                self.profiletool.clearProfil()
+                self.cleaning()
+                self.isPlotting = True
+            self.pointstoDraw += newPoints
+            self.profiletool.updateProfil(self.pointstoDraw)
         if self.selectionmethod in (1, 2):
             if self.selectionmethod == 1:
                 method = "feature"
@@ -119,25 +133,6 @@ class ProfiletoolMapToolRenderer:
             self.profiletool.updateProfilFromFeatures(result[0], result[1])
 
             self.iface.mainWindow().statusBar().showMessage(message)
-
-    def doubleClicked(self, position):
-        if self.selectionmethod == 0:
-            # Validation of line
-            mapPos = self.canvas.getCoordinateTransform().toMapCoordinates(
-                position["x"], position["y"]
-            )
-            newPoints = [[mapPos.x(), mapPos.y()]]
-            self.pointstoDraw += newPoints
-            # launch analyses
-            self.iface.mainWindow().statusBar().showMessage(str(self.pointstoDraw))
-            self.profiletool.updateProfil(self.pointstoDraw)
-            # Reset
-            self.pointstoDraw = []
-            # temp point to distinct leftclick and dbleclick
-            self.dblclktemp = newPoints
-            self.iface.mainWindow().statusBar().showMessage(self.textquit0)
-        if self.selectionmethod in (1, 2):
-            return
 
     def currentLayerChanged(self, layer):
         if self.selectionmethod == 2:
@@ -178,7 +173,6 @@ class ProfiletoolMapToolRenderer:
         self.tool.moved.connect(self.moved)
         self.tool.rightClicked.connect(self.rightClicked)
         self.tool.leftClicked.connect(self.leftClicked)
-        self.tool.doubleClicked.connect(self.doubleClicked)
         self.tool.desactivate.connect(self.deactivate)
         self.iface.currentLayerChanged.connect(self.currentLayerChanged)
 
@@ -187,7 +181,6 @@ class ProfiletoolMapToolRenderer:
         self.tool.moved.disconnect(self.moved)
         self.tool.rightClicked.disconnect(self.rightClicked)
         self.tool.leftClicked.disconnect(self.leftClicked)
-        self.tool.doubleClicked.disconnect(self.doubleClicked)
         self.tool.desactivate.disconnect(self.deactivate)
         self.iface.currentLayerChanged.disconnect(self.currentLayerChanged)
         self.canvas.unsetMapTool(self.tool)
