@@ -24,31 +24,42 @@
 # ---------------------------------------------------------------------
 
 import os
-import platform
+from contextlib import suppress
 
-from qgis.PyQt import QtCore, QtGui, uic
+from qgis.core import (
+    QgsFeature,
+    QgsField,
+    QgsGeometry,
+    QgsMapLayer,
+    QgsPointXY,
+    QgsProject,
+    QgsVectorLayer,
+)
 
-try:
-    from qgis.PyQt.QtGui import QDockWidget
-except:
-    from qgis.PyQt.QtWidgets import QDockWidget
-
-from qgis.core import *
-from qgis.gui import *
+# from qgis.gui import *
+# from qgis.PyQt import QtCore, QtGui, uic
+from qgis.PyQt import uic
+from qgis.PyQt.QtCore import QModelIndex, Qt, QVariant, pyqtSignal
+from qgis.PyQt.QtGui import QStandardItemModel
+from qgis.PyQt.QtWidgets import (
+    QApplication,
+    QDockWidget,
+    QGroupBox,
+    QHBoxLayout,
+    QPushButton,
+    QSizePolicy,
+    QTableView,
+    QVBoxLayout,
+)
 
 # plugin import
-from ..tools.plottingtool import *
+from ..tools.plottingtool import PlottingTool
 from ..tools.tableviewtool import TableViewTool
 
 try:
-    from PyQt4.Qwt5 import *
-    Qwt5_loaded = True
-except ImportError:
-    Qwt5_loaded = False
+    import matplotlib  # noqa:F401
+    from matplotlib import *  # noqa:F403,F401
 
-try:
-    import matplotlib
-    from matplotlib import *
     matplotlib_loaded = True
 except ImportError:
     matplotlib_loaded = False
@@ -63,7 +74,7 @@ class PTDockWidget(QDockWidget, FormClass):
     TITLE = "ProfileTool"
     TYPE = None
 
-    closed = QtCore.pyqtSignal()
+    closed = pyqtSignal()
 
     def __init__(self, iface1, profiletoolcore, parent=None):
         QDockWidget.__init__(self, parent)
@@ -71,12 +82,12 @@ class PTDockWidget(QDockWidget, FormClass):
         self.profiletoolcore = profiletoolcore
         self.iface = iface1
         # Apperance
-        self.location = QtCore.Qt.BottomDockWidgetArea
+        self.location = Qt.DockWidgetArea.BottomDockWidgetArea
         minsize = self.minimumSize()
         maxsize = self.maximumSize()
         self.setMinimumSize(minsize)
         self.setMaximumSize(maxsize)
-        self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
         # init scale widgets
         self.sbMaxVal.setValue(0)
@@ -86,7 +97,9 @@ class PTDockWidget(QDockWidget, FormClass):
         self.connectYSpinbox()
 
         # model
-        self.mdl = QStandardItemModel(0, 6)  # the model whitch in are saved layers analysed caracteristics
+        self.mdl = QStandardItemModel(
+            0, 6
+        )  # the model whitch in are saved layers analysed caracteristics
         self.tableView.setModel(self.mdl)
         self.tableView.setColumnWidth(0, 20)
         self.tableView.setColumnWidth(1, 20)
@@ -94,7 +107,9 @@ class PTDockWidget(QDockWidget, FormClass):
         hh = self.tableView.horizontalHeader()
         hh.setStretchLastSection(True)
         self.tableView.setColumnHidden(5, True)
-        self.mdl.setHorizontalHeaderLabels(["", "", self.tr("Layer"), self.tr("Band/Field"), self.tr("Search buffer")])
+        self.mdl.setHorizontalHeaderLabels(
+            ["", "", self.tr("Layer"), self.tr("Band/Field"), self.tr("Search buffer")]
+        )
         self.tableViewTool = TableViewTool()
 
         # other
@@ -119,17 +134,14 @@ class PTDockWidget(QDockWidget, FormClass):
 
         self.cbSameAxisScale.stateChanged.connect(self._onSameAxisScaleStateChanged)
 
-    #********************************************************************************
-    #init things ****************************************************************
-    #********************************************************************************
-
+    # ********************************************************************************
+    # init things ****************************************************************
+    # ********************************************************************************
 
     def addOptionComboboxItems(self):
         self.cboLibrary.addItem("PyQtGraph")
         if matplotlib_loaded:
             self.cboLibrary.addItem("Matplotlib")
-        if Qwt5_loaded:
-            self.cboLibrary.addItem("Qwt5")
 
     def selectionMethod(self, item):
         self.profiletoolcore.toolrenderer.setSelectionMethod(item)
@@ -145,25 +157,29 @@ class PTDockWidget(QDockWidget, FormClass):
         if self.plotlibrary == "PyQtGraph":
             self.checkBox_mpl_tracking.setEnabled(True)
             self.checkBox_showcursor.setEnabled(True)
-            self.checkBox_mpl_tracking.setCheckState(2)
+            self.checkBox_mpl_tracking.setCheckState(Qt.CheckState.Checked)
             self.profiletoolcore.activateMouseTracking(2)
-            self.checkBox_mpl_tracking.stateChanged.connect(self.profiletoolcore.activateMouseTracking)
+            self.checkBox_mpl_tracking.stateChanged.connect(
+                self.profiletoolcore.activateMouseTracking
+            )
             self._onSameAxisScaleStateChanged(self.cbSameAxisScale.checkState())
 
-        elif self.plotlibrary == 'Matplotlib':
+        elif self.plotlibrary == "Matplotlib":
             self.checkBox_mpl_tracking.setEnabled(True)
             self.checkBox_showcursor.setEnabled(False)
-            self.checkBox_mpl_tracking.setCheckState(2)
+            self.checkBox_mpl_tracking.setCheckState(Qt.CheckState.Checked)
             self.profiletoolcore.activateMouseTracking(2)
-            self.checkBox_mpl_tracking.stateChanged.connect(self.profiletoolcore.activateMouseTracking)
-            self.cbSameAxisScale.setCheckState(Qt.Unchecked)
+            self.checkBox_mpl_tracking.stateChanged.connect(
+                self.profiletoolcore.activateMouseTracking
+            )
+            self.cbSameAxisScale.setCheckState(Qt.CheckState.Unchecked)
 
         else:
             self.checkBox_mpl_tracking.setCheckState(0)
             self.checkBox_mpl_tracking.setEnabled(False)
-            self.cbSameAxisScale.setCheckState(Qt.Unchecked)
+            self.cbSameAxisScale.setCheckState(Qt.CheckState.Unchecked)
 
-        self.cbSameAxisScale.setEnabled(self.plotlibrary == 'PyQtGraph')
+        self.cbSameAxisScale.setEnabled(self.plotlibrary == "PyQtGraph")
 
     def addPlotWidget(self, library):
         layout = self.frame_for_plot.layout()
@@ -178,54 +194,26 @@ class PTDockWidget(QDockWidget, FormClass):
             layout.addWidget(self.plotWdg)
             self.TYPE = "PyQtGraph"
             self.cbxSaveAs.clear()
-            self.cbxSaveAs.addItems(["Graph - PNG", "Graph - SVG", "3D line - DXF", "2D Profile - DXF"])
-
-        elif library == "Qwt5":
-            self.stackedWidget.setCurrentIndex(0)
-            widget1 = self.stackedWidget.widget(1)
-            if widget1:
-                self.stackedWidget.removeWidget(widget1)
-                widget1 = None
-            # self.widget_save_buttons.setVisible( True )
-            self.plotWdg = PlottingTool().changePlotWidget("Qwt5", self.frame_for_plot)
-            layout.addWidget(self.plotWdg)
-
-            if QT_VERSION < 0x040100:
-                idx = self.cbxSaveAs.model().index(0, 0)
-                self.cbxSaveAs.model().setData(idx, QVariant(0), QtCore.Qt.UserRole - 1)
-                self.cbxSaveAs.setCurrentIndex(1)
-            if QT_VERSION < 0x040300:
-                idx = self.cbxSaveAs.model().index(1, 0)
-                self.cbxSaveAs.model().setData(idx, QVariant(0), QtCore.Qt.UserRole - 1)
-                self.cbxSaveAs.setCurrentIndex(2)
-            self.TYPE = "Qwt5"
+            self.cbxSaveAs.addItems(
+                ["Graph - PNG", "Graph - SVG", "3D line - DXF", "2D Profile - DXF"]
+            )
 
         elif library == "Matplotlib":
             self.stackedWidget.setCurrentIndex(0)
             # self.widget_save_buttons.setVisible( False )
             self.plotWdg = PlottingTool().changePlotWidget("Matplotlib", self.frame_for_plot)
             layout.addWidget(self.plotWdg)
-
-            if int(qgis.PyQt.QtCore.QT_VERSION_STR[0]) == 4:
-                # from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg
-                mpltoolbar = matplotlib.backends.backend_qt4agg.NavigationToolbar2QTAgg(
-                    self.plotWdg, self.frame_for_plot
-                )
-                # layout.addWidget( mpltoolbar )
-                self.stackedWidget.insertWidget(1, mpltoolbar)
-                self.stackedWidget.setCurrentIndex(1)
-                lstActions = mpltoolbar.actions()
-                mpltoolbar.removeAction(lstActions[7])
-                mpltoolbar.removeAction(lstActions[8])
-
-            elif int(qgis.PyQt.QtCore.QT_VERSION_STR[0]) == 5:
-                # from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
-                # mpltoolbar = matplotlib.backends.backend_qt5agg.NavigationToolbar2QTAgg(self.plotWdg, self.frame_for_plot)
-                pass
             self.TYPE = "Matplotlib"
             self.cbxSaveAs.clear()
             self.cbxSaveAs.addItems(
-                ["Graph - PDF", "Graph - PNG", "Graph - SVG", "Graph - print (PS)", "3D line - DXF", "2D Profile - DXF"]
+                [
+                    "Graph - PDF",
+                    "Graph - PNG",
+                    "Graph - SVG",
+                    "Graph - print (PS)",
+                    "3D line - DXF",
+                    "2D Profile - DXF",
+                ]
             )
 
     # ********************************************************************************
@@ -237,37 +225,34 @@ class PTDockWidget(QDockWidget, FormClass):
         self.sbMaxVal.valueChanged.connect(self.reScalePlot)
 
     def disconnectYSpinbox(self):
-        try:
+        with suppress(AttributeError, RuntimeError, TypeError):
             self.sbMinVal.valueChanged.disconnect(self.reScalePlot)
-        except:
-            pass
-        try:
             self.sbMaxVal.valueChanged.disconnect(self.reScalePlot)
-        except:
-            pass
 
     def connectPlotRangechanged(self):
         self.plotWdg.getViewBox().sigRangeChanged.connect(self.plotRangechanged)
 
     def disconnectPlotRangechanged(self):
-        try:
+        with suppress(AttributeError, RuntimeError, TypeError):
             self.plotWdg.getViewBox().sigRangeChanged.disconnect(self.plotRangechanged)
-        except:
-            pass
 
     def plotRangechanged(self, param=None):  # called when pyqtgraph view changed
         PlottingTool().plotRangechanged(self, self.cboLibrary.currentText())
 
     def reScalePlot(self, param):  # called when a spinbox value changed
-        if type(param) == bool:  # comes from button
-            PlottingTool().reScalePlot(self, self.profiletoolcore.profiles, self.cboLibrary.currentText(), True)
+        if isinstance(param, bool):  # comes from button
+            PlottingTool().reScalePlot(
+                self, self.profiletoolcore.profiles, self.cboLibrary.currentText(), True
+            )
 
         else:  # spinboxchanged
             if self.sbMinVal.value() == self.sbMaxVal.value() == 0:
                 # don't execute it on init
                 pass
             else:
-                PlottingTool().reScalePlot(self, self.profiletoolcore.profiles, self.cboLibrary.currentText())
+                PlottingTool().reScalePlot(
+                    self, self.profiletoolcore.profiles, self.cboLibrary.currentText()
+                )
 
     def showCursor(self, int1):
         # For pyqtgraph mode
@@ -277,12 +262,18 @@ class PTDockWidget(QDockWidget, FormClass):
                 self.profiletoolcore.doTracking = bool(self.checkBox_mpl_tracking.checkState())
                 self.checkBox_mpl_tracking.setEnabled(True)
                 for item in self.plotWdg.allChildItems():
-                    if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
+                    if (
+                        str(type(item))
+                        == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>"
+                    ):
                         if item.name() == "cross_vertical":
                             item.show()
                         elif item.name() == "cross_horizontal":
                             item.show()
-                    elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
+                    elif (
+                        str(type(item))
+                        == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>"
+                    ):
                         if item.textItem.toPlainText()[0] == "X":
                             item.show()
                         elif item.textItem.toPlainText()[0] == "Y":
@@ -293,12 +284,18 @@ class PTDockWidget(QDockWidget, FormClass):
                 self.checkBox_mpl_tracking.setEnabled(False)
 
                 for item in self.plotWdg.allChildItems():
-                    if str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>":
+                    if (
+                        str(type(item))
+                        == "<class 'profiletool.pyqtgraph.graphicsItems.InfiniteLine.InfiniteLine'>"
+                    ):
                         if item.name() == "cross_vertical":
                             item.hide()
                         elif item.name() == "cross_horizontal":
                             item.hide()
-                    elif str(type(item)) == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>":
+                    elif (
+                        str(type(item))
+                        == "<class 'profiletool.pyqtgraph.graphicsItems.TextItem.TextItem'>"
+                    ):
                         if item.textItem.toPlainText()[0] == "X":
                             item.hide()
                         elif item.textItem.toPlainText()[0] == "Y":
@@ -323,10 +320,8 @@ class PTDockWidget(QDockWidget, FormClass):
 
         if index is not None:
             layer = self.mdl.index(index, 4).data()
-            try:
+            with suppress(AttributeError, RuntimeError, TypeError):
                 layer.dataChanged.disconnect(self.refreshPlot)
-            except:
-                pass
             self.tableViewTool.removeLayer(self.mdl, index)
         self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw, False, True)
 
@@ -344,7 +339,8 @@ class PTDockWidget(QDockWidget, FormClass):
         if (
             not self.mdl.item(item.row(), 5) is None
             and item.column() == 4
-            and self.mdl.item(item.row(), 5).data(QtCore.Qt.EditRole).type() == qgis.core.QgsMapLayer.VectorLayer
+            and self.mdl.item(item.row(), 5).data(Qt.EditRole).type()
+            == QgsMapLayer.LayerType.VectorLayer
         ):
 
             self.profiletoolcore.plotProfil()
@@ -357,12 +353,12 @@ class PTDockWidget(QDockWidget, FormClass):
         Only supported with PyQtGraph
         """
 
-        if ( self.plotlibrary == 'PyQtGraph' ):
-            self.plotWdg.getViewBox().setAspectLocked(state == Qt.Checked)
+        if self.plotlibrary == "PyQtGraph":
+            self.plotWdg.getViewBox().setAspectLocked(state == Qt.CheckState.Checked)
 
-    #********************************************************************************
-    #coordinate tab ****************************************************************
-    #********************************************************************************
+    # ********************************************************************************
+    # coordinate tab ****************************************************************
+    # ********************************************************************************
     @staticmethod
     def _profile_name(profile):
         groupTitle = profile["layer"].name()
@@ -380,7 +376,7 @@ class PTDockWidget(QDockWidget, FormClass):
                 if not child:
                     break
                 child.widget().deleteLater()
-        except:
+        except Exception:
             self.VLayout = QVBoxLayout(self.scrollAreaWidgetContents)
             self.VLayout.setContentsMargins(9, -1, -1, -1)
         # Setup the table tab
@@ -395,32 +391,33 @@ class PTDockWidget(QDockWidget, FormClass):
             self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw, False, False)
         for i in range(0, self.mdl.rowCount()):
             self.groupBox.append(QGroupBox(self.scrollAreaWidgetContents))
-            sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self.groupBox[i].setSizePolicy(sizePolicy)
             profileTitle = self._profile_name(self.profiletoolcore.profiles[i])
 
-            try:  # qgis2
-                self.groupBox[i].setTitle(
-                    QApplication.translate("GroupBox" + str(i), profileTitle, None, QApplication.UnicodeUTF8)
-                )
-            except:  # qgis3
-                self.groupBox[i].setTitle(QApplication.translate("GroupBox" + str(i), profileTitle, None))
+            self.groupBox[i].setTitle(
+                QApplication.translate("GroupBox" + str(i), profileTitle, None)
+            )
             self.groupBox[i].setObjectName("groupBox" + str(i))
 
             self.verticalLayout.append(QVBoxLayout(self.groupBox[i]))
             self.verticalLayout[i].setObjectName("verticalLayout")
             # The table
             self.tableView.append(QTableView(self.groupBox[i]))
-            sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            sizePolicy = QSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
             self.tableView[i].setSizePolicy(sizePolicy)
             self.tableView[i].setObjectName("tableView" + str(i))
             # font = QFont("Arial", 8)
             column = len(self.profiletoolcore.profiles[i]["l"])
             self.mdl2 = QStandardItemModel(2, column)
             for j in range(len(self.profiletoolcore.profiles[i]["l"])):
-                self.mdl2.setData(self.mdl2.index(0, j, QModelIndex()), self.profiletoolcore.profiles[i]["l"][j])
+                self.mdl2.setData(
+                    self.mdl2.index(0, j, QModelIndex()), self.profiletoolcore.profiles[i]["l"][j]
+                )
                 # self.mdl2.setData(self.mdl2.index(0, j, QModelIndex())  ,font ,QtCore.Qt.FontRole)
-                self.mdl2.setData(self.mdl2.index(1, j, QModelIndex()), self.profiletoolcore.profiles[i]["z"][j])
+                self.mdl2.setData(
+                    self.mdl2.index(1, j, QModelIndex()), self.profiletoolcore.profiles[i]["z"][j]
+                )
                 # self.mdl2.setData(self.mdl2.index(1, j, QModelIndex())  ,font ,QtCore.Qt.FontRole)
             self.tableView[i].verticalHeader().setDefaultSectionSize(18)
             self.tableView[i].horizontalHeader().setDefaultSectionSize(60)
@@ -428,7 +425,10 @@ class PTDockWidget(QDockWidget, FormClass):
             # 2 * header (1 header + 1 horz slider) + nrows + a small margin
             minTableHeight = (
                 2 * self.tableView[i].horizontalHeader().height()
-                + sum(self.tableView[i].rowHeight(j) for j in range(self.tableView[i].model().rowCount()))
+                + sum(
+                    self.tableView[i].rowHeight(j)
+                    for j in range(self.tableView[i].model().rowCount())
+                )
                 + 6
             )  # extra safety margin
             self.tableView[i].setMinimumHeight(minTableHeight)
@@ -439,42 +439,35 @@ class PTDockWidget(QDockWidget, FormClass):
 
             # the copy to clipboard button
             self.profilePushButton.append(QPushButton(self.groupBox[i]))
-            sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+            sizePolicy = QSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+            )
             self.profilePushButton[i].setSizePolicy(sizePolicy)
-            try:  # qgis2
-                self.profilePushButton[i].setText(
-                    QApplication.translate("GroupBox", "Copy to clipboard", None, QApplication.UnicodeUTF8)
-                )
-            except:  # qgis3
-                self.profilePushButton[i].setText(QApplication.translate("GroupBox", "Copy to clipboard", None))
+            self.profilePushButton[i].setText(
+                QApplication.translate("GroupBox", "Copy to clipboard", None)
+            )
             self.profilePushButton[i].setObjectName(str(i))
             self.horizontalLayout.addWidget(self.profilePushButton[i])
 
             # button to copy to clipboard with coordinates
             self.coordsPushButton.append(QPushButton(self.groupBox[i]))
-            sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+            sizePolicy = QSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+            )
             self.coordsPushButton[i].setSizePolicy(sizePolicy)
-            try:  # qgis2
-                self.coordsPushButton[i].setText(
-                    QApplication.translate(
-                        "GroupBox", "Copy to clipboard (with coordinates)", None, QApplication.UnicodeUTF8
-                    )
-                )
-            except:  # qgis3
-                self.coordsPushButton[i].setText(
-                    QApplication.translate("GroupBox", "Copy to clipboard (with coordinates)", None)
-                )
+            self.coordsPushButton[i].setText(
+                QApplication.translate("GroupBox", "Copy to clipboard (with coordinates)", None)
+            )
 
             # button to copy to clipboard with coordinates
             self.tolayerPushButton.append(QPushButton(self.groupBox[i]))
-            sizePolicy = QSizePolicy(QSizePolicy.Expanding, QSizePolicy.MinimumExpanding)
+            sizePolicy = QSizePolicy(
+                QSizePolicy.Policy.Expanding, QSizePolicy.Policy.MinimumExpanding
+            )
             self.tolayerPushButton[i].setSizePolicy(sizePolicy)
-            try:  # qgis2
-                self.tolayerPushButton[i].setText(
-                    QApplication.translate("GroupBox", "Create Temporary layer", None, QApplication.UnicodeUTF8)
-                )
-            except:  # qgis3
-                self.tolayerPushButton[i].setText(QApplication.translate("GroupBox", "Create Temporary layer", None))
+            self.tolayerPushButton[i].setText(
+                QApplication.translate("GroupBox", "Create Temporary layer", None)
+            )
 
             self.coordsPushButton[i].setObjectName(str(i))
             self.horizontalLayout.addWidget(self.coordsPushButton[i])
@@ -537,7 +530,10 @@ class PTDockWidget(QDockWidget, FormClass):
             # set geometry
             fet.setGeometry(
                 QgsGeometry.fromPointXY(
-                    QgsPointXY(self.profiletoolcore.profiles[nr]["x"][i], self.profiletoolcore.profiles[nr]["y"][i])
+                    QgsPointXY(
+                        self.profiletoolcore.profiles[nr]["x"][i],
+                        self.profiletoolcore.profiles[nr]["y"][i],
+                    )
                 )
             )
             # set attributes
@@ -551,10 +547,7 @@ class PTDockWidget(QDockWidget, FormClass):
 
         # vl.setCustomProperty("labeling/enabled", "true")
         # show layer
-        try:  # qgis2
-            qgis.core.QgsMapLayerRegistry.instance().addMapLayer(vl)
-        except:  # qgis3
-            qgis.core.QgsProject.instance().addMapLayer(vl)
+        QgsProject.instance().addMapLayer(vl)
 
     # ********************************************************************************
     # other things ****************************************************************
@@ -598,5 +591,10 @@ class PTDockWidget(QDockWidget, FormClass):
 
     def outDXF(self, type):
         PlottingTool().outDXF(
-            self.iface, self, self.mdl, self.cboLibrary.currentText(), self.profiletoolcore.profiles, type
+            self.iface,
+            self,
+            self.mdl,
+            self.cboLibrary.currentText(),
+            self.profiletoolcore.profiles,
+            type,
         )

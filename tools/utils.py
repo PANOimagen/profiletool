@@ -23,43 +23,14 @@
 #
 # ---------------------------------------------------------------------
 
-import qgis
-from qgis.PyQt import QtCore
-
-
-def isRunningQGisVersionGE(major, minor):
-    """Returns True if current QGis version is greater or equal than given major.minor version"""
-    running_major, running_minor = [int(n) for n in qgis.utils.Qgis.QGIS_VERSION.split(".")[:2]]
-    return running_major > major or (running_major == major and running_minor >= minor)
+from qgis.core import QgsWkbTypes
 
 
 def isProfilable(layer):
     """Returns True if layer can be profiled, else returns False"""
-    if isRunningQGisVersionGE(3, 6):
-        # 3.6 Added MeshLayer support to QgsMapToolIdentify, used to calculate the profile
-        return (
-            (layer.type() == layer.RasterLayer)
-            or (layer.type() == layer.MeshLayer)
-            or (layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "selafin_viewer")
-            or (layer.type() == layer.VectorLayer and layer.geometryType() == qgis.core.QgsWkbTypes.PointGeometry)
-        )
-    elif isRunningQGisVersionGE(3, 0):
-        return (
-            (layer.type() == layer.RasterLayer)
-            or (layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "crayfish_viewer")
-            or (layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "selafin_viewer")
-            or (layer.type() == layer.VectorLayer and layer.geometryType() == qgis.core.QgsWkbTypes.PointGeometry)
-        )
-    elif isRunningQGisVersionGE(2, 18):
-        return (
-            (layer.type() == layer.RasterLayer)
-            or (layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "crayfish_viewer")
-            or (layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "selafin_viewer")
-            or (layer.type() == layer.VectorLayer and layer.geometryType() == qgis.core.QGis.Point)
-        )
-    else:
-        return (
-            (layer.type() == layer.RasterLayer)
-            or (layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "crayfish_viewer")
-            or (layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "selafin_viewer")
-        )
+    return (
+        (layer.type() == layer.RasterLayer)
+        or (layer.type() == layer.MeshLayer)
+        or (layer.type() == layer.PluginLayer and layer.LAYER_TYPE == "selafin_viewer")
+        or (layer.type() == layer.VectorLayer and layer.geometryType() == QgsWkbTypes.PointGeometry)
+    )

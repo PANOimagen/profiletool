@@ -189,7 +189,7 @@ class DataReaderTool:
         else:  # RASTER LAYERS
             for n, coords in enumerate(zip(x, y)):
                 # this code adapted from valuetool plugin
-                ident = layer.dataProvider().identify(QgsPointXY(*coords), QgsRaster.IdentifyFormatValue)
+                ident = layer.dataProvider().identify(QgsPointXY(*coords), QgsRaster.IdentifyFormat.IdentifyFormatValue)
                 # if ident is not None and ident.has_key(choosenBand+1):
                 if ident is not None and (choosenBand in ident.results()):
                     attr = ident.results()[choosenBand]

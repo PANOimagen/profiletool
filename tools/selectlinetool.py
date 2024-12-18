@@ -22,16 +22,17 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
-import qgis
-from qgis.core import *
-from qgis.gui import *
-from qgis.PyQt.QtCore import *
-from qgis.PyQt.QtGui import *
-
-try:
-    from qgis.PyQt.QtWidgets import *
-except:
-    pass
+from qgis.core import (
+    QgsFeature,
+    QgsFeatureRequest,
+    QgsGeometry,
+    QgsMapLayer,
+    QgsPointXY,
+    QgsRectangle,
+    QgsSpatialIndex,
+    QgsWkbTypes,
+)
+from qgis.PyQt.QtWidgets import QMessageBox
 
 
 class SelectLineTool:
@@ -43,7 +44,9 @@ class SelectLineTool:
         closestFeatures = []
         layer = iface.activeLayer()
         if layer is None or not self.checkIsLineLayer(layer):
-            QMessageBox.warning(iface.mainWindow(), "Closest Feature Finder", "No line layer selected")
+            QMessageBox.warning(
+                iface.mainWindow(), "Closest Feature Finder", "No line layer selected"
+            )
             return None, closestFeatures
 
         if self.selectionMethod == "feature":
@@ -57,15 +60,15 @@ class SelectLineTool:
 
     @staticmethod
     def checkIsLineLayer(layer):
-        if layer is None or layer.type() != QgsMapLayer.VectorLayer:
+        if layer is None or layer.type() != QgsMapLayer.LayerType.VectorLayer:
             return False
-        return layer.geometryType() == qgis.core.QgsWkbTypes.LineGeometry
+        return layer.geometryType() == QgsWkbTypes.LineGeometry
 
     @staticmethod
     def checkIsPointLayer(layer):
-        if layer is None or layer.type() != QgsMapLayer.VectorLayer:
+        if layer is None or layer.type() != QgsMapLayer.LayerType.VectorLayer:
             return False
-        return layer.geometryType() == qgis.core.QgsWkbTypes.PointGeometry
+        return layer.geometryType() == QgsWkbTypes.PointGeometry
 
     @staticmethod
     def select_closest_feature(iface, layer, point):
@@ -77,35 +80,27 @@ class SelectLineTool:
         #
         iter = layer.getFeatures()
         while iter.nextFeature(f):
-            try:  # qgis > 3.4
-                layerindex.addFeature(f)
-            except:  # qgis < 3.4
-                layerindex.insertFeature(f)
+            layerindex.addFeature(f)
+
         # get the feature which has the closest bounding box using the spatial index
         nearest = layerindex.nearestNeighbor(point, 1)
         featureId = nearest[0] if len(nearest) > 0 else None
         closestFeature = QgsFeature()
 
-        try:  # qgis2
-            if featureId == None or layer.getFeatures(QgsFeatureRequest(featureId)).next() == False:
-                closestFeature = None
-        except:  # qgis3
-            # if featureId == None or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature() == False:
-            f = QgsFeature()
-            if featureId == None or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) == False:
-                closestFeature = None
+        f = QgsFeature()
+        if (
+            featureId is None
+            or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False
+        ):
+            closestFeature = None
 
-        booltemp = layer.geometryType() != qgis.core.QgsWkbTypes.PointGeometry
+        booltemp = layer.geometryType() != QgsWkbTypes.PointGeometry
 
-        if booltemp and closestFeature != None:
+        if booltemp and closestFeature is not None:
             # find the furthest bounding box borders
-            try:  # qgis2
-                closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).next()
-                rect = closestFeature.geometry().boundingBox()
-            except:  # qgis3
-                f = QgsFeature()
-                closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f)
-                rect = f.geometry().boundingBox()
+            f = QgsFeature()
+            closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f)
+            rect = f.geometry().boundingBox()
 
             dist_pX_rXmax = abs(point.x() - rect.xMaximum())
             dist_pX_rXmin = abs(point.x() - rect.xMinimum())
@@ -143,17 +138,15 @@ class SelectLineTool:
                     minDist = distance
                     featureId = f.id()
             # get the closest feature
-            try:
-                closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).next()
-                if featureId == None or layer.getFeatures(QgsFeatureRequest(featureId)).next(f) == False:
-                    closestFeature = None
-            except:
-                f = QgsFeature()
-                # closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).next()
-                closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f)
-                closestFeature = f
-                if featureId == None or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) == False:
-                    closestFeature = None
+            f = QgsFeature()
+            # closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).next()
+            closestFeature = layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f)
+            closestFeature = f
+            if (
+                featureId is None
+                or layer.getFeatures(QgsFeatureRequest(featureId)).nextFeature(f) is False
+            ):
+                closestFeature = None
 
         return [closestFeature] if closestFeature else []
 

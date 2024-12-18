@@ -23,15 +23,10 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 # ---------------------------------------------------------------------
-"""
-from PyQt4.QtCore import *
-from PyQt4.QtGui import *
-"""
-import qgis
-from qgis.core import *
-from qgis.gui import *
-from qgis.PyQt.QtCore import *
-from qgis.PyQt.QtGui import *
+from qgis.core import QgsPointXY, QgsWkbTypes
+from qgis.gui import QgsMapTool, QgsRubberBand, QgsVertexMarker
+from qgis.PyQt.QtCore import Qt, pyqtSignal
+from qgis.PyQt.QtGui import QColor, QCursor
 
 from .selectlinetool import SelectLineTool
 
@@ -41,44 +36,52 @@ class ProfiletoolMapToolRenderer:
         self.profiletool = profiletool
         self.iface = self.profiletool.iface
         self.canvas = self.profiletool.iface.mapCanvas()
-        self.tool = ProfiletoolMapTool(self.canvas, self.profiletool.plugincore.action)  # the mouselistener
+        self.tool = ProfiletoolMapTool(
+            self.canvas, self.profiletool.plugincore.action
+        )  # the mouselistener
         self.pointstoDraw = []  # Polyline being drawn in freehand mode
         self.dblclktemp = None  # enable disctinction between leftclick and doubleclick
         # the rubberband
-        self.rubberband = QgsRubberBand(self.iface.mapCanvas(), QgsWkbTypes.LineGeometry)
+        self.rubberband = QgsRubberBand(
+            self.iface.mapCanvas(), QgsWkbTypes.GeometryType.LineGeometry
+        )
         self.rubberband.setWidth(2)
-        self.rubberband.setColor(QColor(Qt.red))
+        self.rubberband.setColor(QColor(Qt.GlobalColor.red))
 
         self.rubberbandpoint = QgsVertexMarker(self.iface.mapCanvas())
-        self.rubberbandpoint.setColor(QColor(Qt.red))
+        self.rubberbandpoint.setColor(QColor(Qt.GlobalColor.red))
         self.rubberbandpoint.setIconSize(5)
         self.rubberbandpoint.setIconType(QgsVertexMarker.ICON_BOX)  # or ICON_CROSS, ICON_X
         self.rubberbandpoint.setPenWidth(3)
 
         self.rubberbandbuf = QgsRubberBand(self.iface.mapCanvas())
         self.rubberbandbuf.setWidth(1)
-        self.rubberbandbuf.setColor(QColor(Qt.blue))
+        self.rubberbandbuf.setColor(QColor(Qt.GlobalColor.blue))
 
-        self.textquit0 = "Click for polyline and double click to end (right click to cancel then quit)"
+        self.textquit0 = (
+            "Click for polyline and double click to end (right click to cancel then quit)"
+        )
         self.textquit1 = "Select the polyline feature in a vector layer (Right click to quit)"
         self.textquit2 = "Select the polyline vector layer (Right click to quit)"
 
         self.setSelectionMethod(0)
 
     def resetRubberBand(self):
-        self.rubberband.reset(QgsWkbTypes.LineGeometry)
-
-    # ************************************* Mouse listener actions ***********************************************
+        self.rubberband.reset(QgsWkbTypes.GeometryType.LineGeometry)
 
     def moved(self, position):  # draw the polyline on the temp layer (rubberband)
         if self.selectionmethod == 0:
             if len(self.pointstoDraw) > 0:
                 # Get mouse coords
-                mapPos = self.canvas.getCoordinateTransform().toMapCoordinates(position["x"], position["y"])
+                mapPos = self.canvas.getCoordinateTransform().toMapCoordinates(
+                    position["x"], position["y"]
+                )
                 # Draw on temp layer
                 self.resetRubberBand()
                 for i in range(0, len(self.pointstoDraw)):
-                    self.rubberband.addPoint(QgsPointXY(self.pointstoDraw[i][0], self.pointstoDraw[i][1]))
+                    self.rubberband.addPoint(
+                        QgsPointXY(self.pointstoDraw[i][0], self.pointstoDraw[i][1])
+                    )
                 self.rubberband.addPoint(QgsPointXY(mapPos.x(), mapPos.y()))
         if self.selectionmethod in (1, 2):
             return
@@ -120,7 +123,9 @@ class ProfiletoolMapToolRenderer:
     def doubleClicked(self, position):
         if self.selectionmethod == 0:
             # Validation of line
-            mapPos = self.canvas.getCoordinateTransform().toMapCoordinates(position["x"], position["y"])
+            mapPos = self.canvas.getCoordinateTransform().toMapCoordinates(
+                position["x"], position["y"]
+            )
             newPoints = [[mapPos.x(), mapPos.y()]]
             self.pointstoDraw += newPoints
             # launch analyses
@@ -147,13 +152,13 @@ class ProfiletoolMapToolRenderer:
         self.cleaning()
         self.selectionmethod = method
         if method == 0:
-            self.tool.setCursor(Qt.CrossCursor)
+            self.tool.setCursor(Qt.CursorShape.CrossCursor)
             self.iface.mainWindow().statusBar().showMessage(self.textquit0)
         elif method == 1:
-            self.tool.setCursor(Qt.PointingHandCursor)
+            self.tool.setCursor(Qt.CursorShape.PointingHandCursor)
             self.iface.mainWindow().statusBar().showMessage(self.textquit1)
         elif method == 2:
-            self.tool.setCursor(Qt.PointingHandCursor)
+            self.tool.setCursor(Qt.CursorShape.PointingHandCursor)
             self.iface.mainWindow().statusBar().showMessage(self.textquit2)
         self.currentLayerChanged(self.iface.activeLayer())
 
@@ -200,14 +205,14 @@ class ProfiletoolMapTool(QgsMapTool):
     def __init__(self, canvas, button):
         QgsMapTool.__init__(self, canvas)
         self.canvas = canvas
-        self.cursor = QCursor(Qt.CrossCursor)
+        self.cursor = QCursor(Qt.CursorShape.CrossCursor)
         self.button = button
 
     def canvasMoveEvent(self, event):
         self.moved.emit({"x": event.pos().x(), "y": event.pos().y()})
 
     def canvasReleaseEvent(self, event):
-        if event.button() == Qt.RightButton:
+        if event.button() == Qt.MouseButton.RightButton:
             self.rightClicked.emit({"x": event.pos().x(), "y": event.pos().y()})
         else:
             self.leftClicked.emit({"x": event.pos().x(), "y": event.pos().y()})
