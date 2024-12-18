@@ -129,6 +129,7 @@ class PTDockWidget(QDockWidget, FormClass):
         self.tableViewTool.layerAddedOrRemoved.connect(self.refreshPlot)
         self.pushButton_reinitview.clicked.connect(self.reScalePlot)
         self.checkBox_showcursor.stateChanged.connect(self.showCursor)
+        self.cbLiveUpdate.stateChanged.connect(self.liveUpdateChanged)
         self.fullResolutionCheckBox.stateChanged.connect(self.refreshPlot)
         self.profileInterpolationCheckBox.stateChanged.connect(self.refreshPlot)
 
@@ -238,6 +239,9 @@ class PTDockWidget(QDockWidget, FormClass):
 
     def plotRangechanged(self, param=None):  # called when pyqtgraph view changed
         PlottingTool().plotRangechanged(self, self.cboLibrary.currentText())
+
+    def liveUpdateChanged(self, state):
+        self.profiletoolcore.liveUpdate = state
 
     def reScalePlot(self, param):  # called when a spinbox value changed
         if isinstance(param, bool):  # comes from button

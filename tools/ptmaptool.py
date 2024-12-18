@@ -119,7 +119,8 @@ class ProfiletoolMapToolRenderer:
                 self.cleaning()
                 self.isPlotting = True
             self.pointstoDraw += newPoints
-            self.profiletool.updateProfil(self.pointstoDraw)
+            if self.profiletool.liveUpdate:
+                self.profiletool.updateProfil(self.pointstoDraw)
         if self.selectionmethod in (1, 2):
             if self.selectionmethod == 1:
                 method = "feature"

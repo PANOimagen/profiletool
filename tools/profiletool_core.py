@@ -63,6 +63,7 @@ class ProfileToolCore(QWidget):
 
         # mouse tracking
         self.doTracking = False
+        self.liveUpdate = True
         # the datas / results
         # dictionary where is saved the plotting data {"l":[l],"z":[z], "layer":layer1, "curve":curve1}  # noqa: E501
         self.profiles = None
