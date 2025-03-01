@@ -30,6 +30,7 @@ import numpy as np
 
 # qgis import
 from qgis.core import QgsGeometry, QgsMapLayer, QgsPoint, QgsPointXY, QgsProject
+from qgis.core import QgsVectorLayer, QgsFeature # added by C.Candido
 
 # from qgis.gui import *
 from qgis.PyQt.QtCore import QSettings, Qt
@@ -166,6 +167,7 @@ class ProfileToolCore(QWidget):
         #    points1 = points1 + [points1[-1]]
         self.pointstoDraw = points1
         self.profiles = []
+        self.distancesPicked = [] # added by C.Candido
 
         # calculate profiles
         for i in range(0, self.dockwidget.mdl.rowCount()):
@@ -254,6 +256,43 @@ class ProfileToolCore(QWidget):
 
         self.updateCursorOnMap(self.x_cursor)
         self.enableMouseCoordonates(self.dockwidget.plotlibrary)
+
+    def setPointOnMap(self,x,y): #added by C.Candido
+        self.x_cursor = x
+        if self.pointstoDraw and self.doTracking:
+            if x is not None:
+                points = [QgsPointXY(*p) for p in self.pointstoDraw]
+                geom = QgsGeometry.fromPolylineXY(points)
+                try:
+                    if len(points) > 1:
+                        # May crash with a single point in polyline on
+                        # QGis 3.0.2,
+                        # Issue #1 on PANOimagen's repo,
+                        # Bug report #18987 on qgis.
+                        pointprojected = geom.interpolate(x).asPoint()
+                    else:
+                        pointprojected = points[0]
+                except (IndexError, AttributeError, ValueError):
+                    pointprojected = None
+
+                if pointprojected:
+                    layers = [layer.name() for layer in QgsProject.instance().mapLayers().values()]
+                    if not 'profile_points' in layers:
+                        # create temporary profile point layer (horizontal distance=d, raster band value=z)
+                        layer = QgsVectorLayer("Point?field=z:double&field=d:double&index=yes&crs="+QgsProject.instance().crs().authid(),"profile_points","memory")
+                        QgsProject.instance().addMapLayer(layer)
+                    else:
+                        layer = QgsProject.instance().mapLayersByName('profile_points')[0]
+
+                    print('D: '+str(x)+',Z: '+str(y)+', '+str(pointprojected))
+                    provider = layer.dataProvider()
+                    feat = QgsFeature(layer.fields())
+                    feat.setGeometry(QgsGeometry.fromPointXY(pointprojected))
+                    feat['z'] = y.item()
+                    feat['d'] = x.item()
+                    provider.addFeatures([feat])
+                    layer.updateExtents()
+                    layer.triggerRepaint()
 
     def updateCursorOnMap(self, x):
         self.x_cursor = x
@@ -346,11 +385,50 @@ class ProfileToolCore(QWidget):
     def enableMouseCoordonates(self, library):
         if library == "PyQtGraph":
             self.dockwidget.plotWdg.scene().sigMouseMoved.connect(self.mouseMovedPyQtGraph)
+            self.dockwidget.plotWdg.scene().sigMouseClicked.connect(self.mouseClickedPyQtGraph) # added by C.Candido
             self.dockwidget.plotWdg.getViewBox().autoRange(
                 items=self.dockwidget.plotWdg.getPlotItem().listDataItems()
             )
             # self.dockwidget.plotWdg.getViewBox().sigRangeChanged.connect(self.dockwidget.plotRangechanged)
             self.dockwidget.connectPlotRangechanged()
+
+    def mouseClickedPyQtGraph(self, event): #added by Candido
+       pos = event.scenePos()
+       if self.dockwidget.plotWdg.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor:
+            range = self.dockwidget.plotWdg.getViewBox().viewRange()
+            # récupère le point souris à partir ViewBox
+            mousePoint = self.dockwidget.plotWdg.getViewBox().mapSceneToView(pos)
+
+            datas = []
+            pitems = self.dockwidget.plotWdg.getPlotItem()
+            ytoplot = None
+            xtoplot = None
+
+            if len(pitems.listDataItems()) > 0:
+                # get data and nearest xy from cursor
+                compt = 0
+                try:
+                    for item in pitems.listDataItems():
+                        if item.isVisible():
+                            x, y = item.getData()
+                            nearestindex = np.argmin(abs(np.array(x, dtype=float) - mousePoint.x()))
+                            if compt == 0:
+                                xtoplot = np.array(x, dtype=float)[nearestindex]
+                                ytoplot = np.array(y)[nearestindex]
+                            else:
+                                if abs(np.array(y)[nearestindex] - mousePoint.y()) < abs(ytoplot - mousePoint.y()):
+                                    ytoplot = np.array(y)[nearestindex]
+                                    xtoplot = np.array(x)[nearestindex]
+                            compt += 1
+                except (IndexError, ValueError):
+                    ytoplot = None
+                    xtoplot = None
+
+                xtoplot = round(xtoplot,2)
+                ytoplot = round(ytoplot,2)
+                if not xtoplot in self.distancesPicked:
+                    self.setPointOnMap(xtoplot,ytoplot)
+                    self.distancesPicked.append(xtoplot)
 
     def disableMouseCoordonates(self):
         with suppress(AttributeError, RuntimeError, TypeError):

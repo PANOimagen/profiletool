@@ -13,6 +13,9 @@ experimental=True
 deprecated=False
 
 changelog=
+    4.3.1 : Add support for picking and saving profile points when "Link mouse position" is enabled (by Christoph Candido - github/cxcandid)
+        - points are stored in layer "profile_points" with fields "d" (horizontal distance from startpoint) and "z" (raster band value)
+        - if layer "profile_points" does not exist, a memory layer is automatically created
     4.3.0 : Experimental for now as I might have break things...
         - Upgrade pyqtgraph to 0.13.7
         - Compatibility with Qt6
