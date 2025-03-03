@@ -30,7 +30,7 @@ import numpy as np
 
 # qgis import
 from qgis.core import QgsGeometry, QgsMapLayer, QgsPoint, QgsPointXY, QgsProject
-from qgis.core import QgsVectorLayer, QgsFeature # added by C.Candido
+from qgis.core import QgsVectorLayer, QgsFeature, QgsWkbTypes
 
 # from qgis.gui import *
 from qgis.PyQt.QtCore import QSettings, Qt
@@ -167,7 +167,7 @@ class ProfileToolCore(QWidget):
         #    points1 = points1 + [points1[-1]]
         self.pointstoDraw = points1
         self.profiles = []
-        self.distancesPicked = [] # added by C.Candido
+        self.distancesPicked = []
 
         # calculate profiles
         for i in range(0, self.dockwidget.mdl.rowCount()):
@@ -257,7 +257,7 @@ class ProfileToolCore(QWidget):
         self.updateCursorOnMap(self.x_cursor)
         self.enableMouseCoordonates(self.dockwidget.plotlibrary)
 
-    def setPointOnMap(self,x,y): #added by C.Candido
+    def setPointOnMap(self, x, y):
         self.x_cursor = x
         if self.pointstoDraw and self.doTracking:
             if x is not None:
@@ -265,10 +265,6 @@ class ProfileToolCore(QWidget):
                 geom = QgsGeometry.fromPolylineXY(points)
                 try:
                     if len(points) > 1:
-                        # May crash with a single point in polyline on
-                        # QGis 3.0.2,
-                        # Issue #1 on PANOimagen's repo,
-                        # Bug report #18987 on qgis.
                         pointprojected = geom.interpolate(x).asPoint()
                     else:
                         pointprojected = points[0]
@@ -276,23 +272,33 @@ class ProfileToolCore(QWidget):
                     pointprojected = None
 
                 if pointprojected:
-                    layers = [layer.name() for layer in QgsProject.instance().mapLayers().values()]
-                    if not 'profile_points' in layers:
+                    try:
+                        # test if self.pointLayer does not exist or layer was deleted
+                        if not self.pointLayer:
+                            pass
+                    except:
+                        self.pointLayer = None
+                        layers = QgsProject.instance().mapLayersByName('profile_points')
+                        if layers:
+                            layer = layers[0]
+                            hasFields = all(v in [f.name() for f in layer.fields()] for v in ['d','z'])
+                            if hasFields and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QgsWkbTypes.PointGeometry:
+                                self.pointLayer = layer
+                            
+                    if not self.pointLayer:
                         # create temporary profile point layer (horizontal distance=d, raster band value=z)
-                        layer = QgsVectorLayer("Point?field=z:double&field=d:double&index=yes&crs="+QgsProject.instance().crs().authid(),"profile_points","memory")
-                        QgsProject.instance().addMapLayer(layer)
-                    else:
-                        layer = QgsProject.instance().mapLayersByName('profile_points')[0]
+                        self.pointLayer = QgsVectorLayer("Point?field=z:double&field=d:double&index=yes&crs="+QgsProject.instance().crs().authid(),"profile_points","memory")
+                        QgsProject.instance().addMapLayer(self.pointLayer)
 
                     print('D: '+str(x)+',Z: '+str(y)+', '+str(pointprojected))
-                    provider = layer.dataProvider()
-                    feat = QgsFeature(layer.fields())
+                    provider = self.pointLayer.dataProvider()
+                    feat = QgsFeature(self.pointLayer.fields())
                     feat.setGeometry(QgsGeometry.fromPointXY(pointprojected))
                     feat['z'] = y.item()
                     feat['d'] = x.item()
                     provider.addFeatures([feat])
-                    layer.updateExtents()
-                    layer.triggerRepaint()
+                    self.pointLayer.updateExtents()
+                    self.pointLayer.triggerRepaint()
 
     def updateCursorOnMap(self, x):
         self.x_cursor = x
@@ -302,10 +308,6 @@ class ProfileToolCore(QWidget):
                 geom = QgsGeometry.fromPolylineXY(points)
                 try:
                     if len(points) > 1:
-                        # May crash with a single point in polyline on
-                        # QGis 3.0.2,
-                        # Issue #1 on PANOimagen's repo,
-                        # Bug report #18987 on qgis.
                         pointprojected = geom.interpolate(x).asPoint()
                     else:
                         pointprojected = points[0]
@@ -385,14 +387,14 @@ class ProfileToolCore(QWidget):
     def enableMouseCoordonates(self, library):
         if library == "PyQtGraph":
             self.dockwidget.plotWdg.scene().sigMouseMoved.connect(self.mouseMovedPyQtGraph)
-            self.dockwidget.plotWdg.scene().sigMouseClicked.connect(self.mouseClickedPyQtGraph) # added by C.Candido
+            self.dockwidget.plotWdg.scene().sigMouseClicked.connect(self.mouseClickedPyQtGraph)
             self.dockwidget.plotWdg.getViewBox().autoRange(
                 items=self.dockwidget.plotWdg.getPlotItem().listDataItems()
             )
             # self.dockwidget.plotWdg.getViewBox().sigRangeChanged.connect(self.dockwidget.plotRangechanged)
             self.dockwidget.connectPlotRangechanged()
 
-    def mouseClickedPyQtGraph(self, event): #added by Candido
+    def mouseClickedPyQtGraph(self, event):
        pos = event.scenePos()
        if self.dockwidget.plotWdg.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor:
             range = self.dockwidget.plotWdg.getViewBox().viewRange()
