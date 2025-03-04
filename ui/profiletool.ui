@@ -525,7 +525,7 @@ on graph with canvas</string>
                   </sizepolicy>
                  </property>
                  <property name="text">
-                  <string>Store picked points 
+                  <string>Save selected points 
 in profile_points layer</string>
                  </property>
                 </widget>
@@ -554,8 +554,8 @@ in profile_points layer</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>887</width>
-             <height>340</height>
+             <width>98</width>
+             <height>28</height>
             </rect>
            </property>
           </widget>
