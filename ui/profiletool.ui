@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>921</width>
-    <height>380</height>
+    <width>923</width>
+    <height>422</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -445,26 +445,6 @@ on graph with canvas</string>
                  </property>
                 </widget>
                </item>
-               <item row="1" column="0">
-                <widget class="QCheckBox" name="checkBox_showcursor">
-                 <property name="text">
-                  <string>Show cursor</string>
-                 </property>
-                 <property name="checked">
-                  <bool>true</bool>
-                 </property>
-                 <property name="tristate">
-                  <bool>false</bool>
-                 </property>
-                </widget>
-               </item>
-               <item row="0" column="0">
-                <widget class="QLabel" name="label">
-                 <property name="text">
-                  <string>Selection</string>
-                 </property>
-                </widget>
-               </item>
                <item row="0" column="1">
                 <widget class="QComboBox" name="comboBox">
                  <property name="sizePolicy">
@@ -493,13 +473,16 @@ on graph with canvas</string>
                  </item>
                 </widget>
                </item>
-               <item row="2" column="0">
-                <widget class="QCheckBox" name="cbSameAxisScale">
-                 <property name="toolTip">
-                  <string>Always keep the same scale for X and Y axis. &lt;br/&gt;&lt;br/&gt;&lt;i&gt;Only available with PyQtGraph plot library&lt;/i&gt;</string>
-                 </property>
+               <item row="1" column="0">
+                <widget class="QCheckBox" name="checkBox_showcursor">
                  <property name="text">
-                  <string>Same axis scale</string>
+                  <string>Show cursor</string>
+                 </property>
+                 <property name="checked">
+                  <bool>true</bool>
+                 </property>
+                 <property name="tristate">
+                  <bool>false</bool>
                  </property>
                 </widget>
                </item>
@@ -513,6 +496,37 @@ on graph with canvas</string>
                  </property>
                  <property name="checked">
                   <bool>true</bool>
+                 </property>
+                </widget>
+               </item>
+               <item row="0" column="0">
+                <widget class="QLabel" name="label">
+                 <property name="text">
+                  <string>Selection</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="2" column="0">
+                <widget class="QCheckBox" name="cbSameAxisScale">
+                 <property name="toolTip">
+                  <string>Always keep the same scale for X and Y axis. &lt;br/&gt;&lt;br/&gt;&lt;i&gt;Only available with PyQtGraph plot library&lt;/i&gt;</string>
+                 </property>
+                 <property name="text">
+                  <string>Same axis scale</string>
+                 </property>
+                </widget>
+               </item>
+               <item row="4" column="0">
+                <widget class="QCheckBox" name="checkBox_addpoint">
+                 <property name="sizePolicy">
+                  <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                   <horstretch>0</horstretch>
+                   <verstretch>0</verstretch>
+                  </sizepolicy>
+                 </property>
+                 <property name="text">
+                  <string>Store picked points 
+in profile_points layer</string>
                  </property>
                 </widget>
                </item>
@@ -540,8 +554,8 @@ on graph with canvas</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>889</width>
-             <height>306</height>
+             <width>887</width>
+             <height>340</height>
             </rect>
            </property>
           </widget>

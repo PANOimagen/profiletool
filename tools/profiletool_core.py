@@ -290,7 +290,7 @@ class ProfileToolCore(QWidget):
                         self.pointLayer = QgsVectorLayer("Point?field=z:double&field=d:double&index=yes&crs="+QgsProject.instance().crs().authid(),"profile_points","memory")
                         QgsProject.instance().addMapLayer(self.pointLayer)
 
-                    print('D: '+str(x)+',Z: '+str(y)+', '+str(pointprojected))
+                    #print('D: '+str(x)+',Z: '+str(y)+', '+str(pointprojected))
                     provider = self.pointLayer.dataProvider()
                     feat = QgsFeature(self.pointLayer.fields())
                     feat.setGeometry(QgsGeometry.fromPointXY(pointprojected))
@@ -395,6 +395,9 @@ class ProfileToolCore(QWidget):
             self.dockwidget.connectPlotRangechanged()
 
     def mouseClickedPyQtGraph(self, event):
+       if not self.dockwidget.checkBox_addpoint.isChecked():
+           return
+
        pos = event.scenePos()
        if self.dockwidget.plotWdg.sceneBoundingRect().contains(pos) and self.dockwidget.showcursor:
             range = self.dockwidget.plotWdg.getViewBox().viewRange()
@@ -426,11 +429,12 @@ class ProfileToolCore(QWidget):
                     ytoplot = None
                     xtoplot = None
 
-                xtoplot = round(xtoplot,2)
-                ytoplot = round(ytoplot,2)
-                if not xtoplot in self.distancesPicked:
-                    self.setPointOnMap(xtoplot,ytoplot)
-                    self.distancesPicked.append(xtoplot)
+                if xtoplot and ytoplot:
+                    xtoplot = round(xtoplot,2)
+                    ytoplot = round(ytoplot,2)
+                    if not xtoplot in self.distancesPicked:
+                        self.setPointOnMap(xtoplot,ytoplot)
+                        self.distancesPicked.append(xtoplot)
 
     def disableMouseCoordonates(self):
         with suppress(AttributeError, RuntimeError, TypeError):
