@@ -27,9 +27,10 @@
 from contextlib import suppress
 
 import numpy as np
+import os
 
 # qgis import
-from qgis.core import QgsGeometry, QgsMapLayer, QgsPoint, QgsPointXY, QgsProject
+from qgis.core import QgsGeometry, QgsMapLayer, QgsPoint, QgsPointXY, QgsProject, Qgis
 from qgis.core import QgsVectorLayer, QgsFeature, QgsWkbTypes
 
 # from qgis.gui import *
@@ -290,13 +291,16 @@ class ProfileToolCore(QWidget):
                         self.pointLayer = QgsVectorLayer("Point?field=z:double&field=d:double&index=yes&crs="+QgsProject.instance().crs().authid(),"profile_points","memory")
                         QgsProject.instance().addMapLayer(self.pointLayer)
 
-                    #print('D: '+str(x)+',Z: '+str(y)+', '+str(pointprojected))
                     provider = self.pointLayer.dataProvider()
                     feat = QgsFeature(self.pointLayer.fields())
                     feat.setGeometry(QgsGeometry.fromPointXY(pointprojected))
-                    feat['z'] = y.item()
                     feat['d'] = x.item()
+                    feat['z'] = y.item()
                     provider.addFeatures([feat])
+                    self.iface.messageBar().pushMessage("Profile Tool", "Point added to layer \"profile_points\"", level=Qgis.Info)
+                    qmlPath = os.path.dirname(__file__)
+                    qmlPath = os.path.dirname(qmlPath)
+                    self.pointLayer.loadNamedStyle(qmlPath+'/profile_points/profile_points.qml')
                     self.pointLayer.updateExtents()
                     self.pointLayer.triggerRepaint()
 
@@ -395,7 +399,7 @@ class ProfileToolCore(QWidget):
             self.dockwidget.connectPlotRangechanged()
 
     def mouseClickedPyQtGraph(self, event):
-       if not self.dockwidget.checkBox_addpoint.isChecked():
+       if not self.dockwidget.cbAddPoint.isChecked():
            return
 
        pos = event.scenePos()

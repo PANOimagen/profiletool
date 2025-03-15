@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>923</width>
+    <width>803</width>
     <height>422</height>
    </rect>
   </property>
@@ -431,20 +431,6 @@
                <string>Options</string>
               </property>
               <layout class="QGridLayout" name="gridLayout">
-               <item row="1" column="1">
-                <widget class="QCheckBox" name="checkBox_mpl_tracking">
-                 <property name="enabled">
-                  <bool>true</bool>
-                 </property>
-                 <property name="text">
-                  <string>Link mouse position 
-on graph with canvas</string>
-                 </property>
-                 <property name="checked">
-                  <bool>true</bool>
-                 </property>
-                </widget>
-               </item>
                <item row="0" column="1">
                 <widget class="QComboBox" name="comboBox">
                  <property name="sizePolicy">
@@ -486,13 +472,14 @@ on graph with canvas</string>
                  </property>
                 </widget>
                </item>
-               <item row="2" column="1">
-                <widget class="QCheckBox" name="cbLiveUpdate">
-                 <property name="toolTip">
-                  <string>Update graph while capturing. Disable if using huge dataset.</string>
+               <item row="1" column="1">
+                <widget class="QCheckBox" name="checkBox_mpl_tracking">
+                 <property name="enabled">
+                  <bool>true</bool>
                  </property>
                  <property name="text">
-                  <string>Live update</string>
+                  <string>Link mouse position 
+on graph with canvas</string>
                  </property>
                  <property name="checked">
                   <bool>true</bool>
@@ -503,30 +490,6 @@ on graph with canvas</string>
                 <widget class="QLabel" name="label">
                  <property name="text">
                   <string>Selection</string>
-                 </property>
-                </widget>
-               </item>
-               <item row="2" column="0">
-                <widget class="QCheckBox" name="cbSameAxisScale">
-                 <property name="toolTip">
-                  <string>Always keep the same scale for X and Y axis. &lt;br/&gt;&lt;br/&gt;&lt;i&gt;Only available with PyQtGraph plot library&lt;/i&gt;</string>
-                 </property>
-                 <property name="text">
-                  <string>Same axis scale</string>
-                 </property>
-                </widget>
-               </item>
-               <item row="4" column="0">
-                <widget class="QCheckBox" name="checkBox_addpoint">
-                 <property name="sizePolicy">
-                  <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
-                   <horstretch>0</horstretch>
-                   <verstretch>0</verstretch>
-                  </sizepolicy>
-                 </property>
-                 <property name="text">
-                  <string>Save selected points 
-in profile_points layer</string>
                  </property>
                 </widget>
                </item>
@@ -554,8 +517,8 @@ in profile_points layer</string>
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>98</width>
-             <height>28</height>
+             <width>771</width>
+             <height>348</height>
             </rect>
            </property>
           </widget>
@@ -583,9 +546,26 @@ in profile_points layer</string>
         <item row="0" column="0">
          <widget class="QGroupBox" name="groupBox_2">
           <property name="title">
-           <string>Full Resolution</string>
+           <string>Tool Settings</string>
           </property>
           <layout class="QVBoxLayout" name="verticalLayout_7">
+           <item>
+            <widget class="QCheckBox" name="cbLiveUpdate">
+             <property name="text">
+              <string>Live update</string>
+             </property>
+             <property name="checked">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="cbSameAxisScale">
+             <property name="text">
+              <string>Same axis scale</string>
+             </property>
+            </widget>
+           </item>
            <item>
             <widget class="QCheckBox" name="fullResolutionCheckBox">
              <property name="sizePolicy">
@@ -599,6 +579,13 @@ in profile_points layer</string>
              </property>
              <property name="text">
               <string>Full resolution enabled</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QCheckBox" name="cbAddPoint">
+             <property name="text">
+              <string>Save selected points in layer &quot;profile_points&quot;</string>
              </property>
             </widget>
            </item>
