@@ -5,7 +5,7 @@ qgisMaximumVersion=3.99
 description=Plots terrain profile
 about=This tool plots profile lines from raster layers or point vector layer with elevation field. Supports multiple lines as well as graph export to svg, pdf, png or csv file. Supports 3D polyline export to dxf. 
 category=Raster
-version=4.3.1
+version=4.3.2
 author=Borys Jurgiel - Patrice Verchere - Etienne Tourigny - Javier Becerra
 email=javier@panoimagen.com
 supportsQt6=True
@@ -13,6 +13,9 @@ experimental=False
 deprecated=False
 
 changelog=
+    4.3.2 : Add support for picking and saving profile points when "Link mouse position" and "Tools Settings > Save seleted points..." are enabled(by Christoph Candido - github/cxcandid)
+        - points are stored in layer "profile_points" with fields "d" (horizontal distance from startpoint) and "z" (raster band value)
+        - if layer "profile_points" does not exist, a memory layer is automatically created
     4.3.1 : Nothing has changed, just a stable version. Let's see if more issue comes up!
     4.3.0 : Experimental for now as I might have break things...
         - Upgrade pyqtgraph to 0.13.7
