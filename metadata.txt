@@ -1,7 +1,7 @@
 [general]
 name=Profile tool
 qgisMinimumVersion=3.40
-qgisMaximumVersion=3.99
+qgisMaximumVersion=4.99
 description=Plots terrain profile
 about=This tool plots profile lines from raster layers or point vector layer with elevation field. Supports multiple lines as well as graph export to svg, pdf, png or csv file. Supports 3D polyline export to dxf. 
 category=Raster
