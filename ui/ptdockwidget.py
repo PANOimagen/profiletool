@@ -316,6 +316,8 @@ class PTDockWidget(QDockWidget, FormClass):
 
         self.tableViewTool.addLayer(self.iface, self.mdl, layer1)
         self.profiletoolcore.updateProfil(self.profiletoolcore.pointstoDraw, False)
+        if layer1 is None: # no layer selected in the dropdown
+            return
         layer1.dataChanged.connect(self.refreshPlot)
 
     def removeLayer(self, index=None):
