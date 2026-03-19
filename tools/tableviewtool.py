@@ -45,7 +45,7 @@ class TableViewTool(QObject):
                 layer = iface.mapCanvas().layer(i)
                 if isProfilable(layer):
                     for j in range(0, mdl.rowCount()):
-                        if str(mdl.item(j, 2).data(Qt.UserRole.EditRole)) == str(layer.name()):
+                        if str(mdl.item(j, 2).data(Qt.ItemDataRole.EditRole)) == str(layer.name()):
                             donothing = True
                 else:
                     donothing = True
@@ -231,7 +231,7 @@ class TableViewTool(QObject):
                 mdl.item(index1.row(), 2).data(Qt.ItemDataRole.EditRole),
                 mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole),
             )
-            color = QColorDialog().getColor(temp.data(Qt.BackgroundRole))
+            color = QColorDialog().getColor(temp.data(Qt.ItemDataRole.BackgroundRole))
             mdl.setData(
                 mdl.index(temp.row(), 1, QModelIndex()), color, Qt.ItemDataRole.BackgroundRole
             )
@@ -242,7 +242,7 @@ class TableViewTool(QObject):
                 mdl.item(index1.row(), 2).data(Qt.ItemDataRole.EditRole),
                 mdl.item(index1.row(), 3).data(Qt.ItemDataRole.EditRole),
             )
-            booltemp = temp.data(Qt.CheckStateRole)
+            booltemp = temp.data(Qt.ItemDataRole.CheckStateRole)
             if booltemp is True:
                 booltemp = False
             else:

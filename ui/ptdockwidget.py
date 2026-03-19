@@ -176,7 +176,7 @@ class PTDockWidget(QDockWidget, FormClass):
             self.cbSameAxisScale.setCheckState(Qt.CheckState.Unchecked)
 
         else:
-            self.checkBox_mpl_tracking.setCheckState(0)
+            self.checkBox_mpl_tracking.setCheckState(Qt.CheckState.Unchecked)
             self.checkBox_mpl_tracking.setEnabled(False)
             self.cbSameAxisScale.setCheckState(Qt.CheckState.Unchecked)
 
@@ -345,7 +345,7 @@ class PTDockWidget(QDockWidget, FormClass):
         if (
             not self.mdl.item(item.row(), 5) is None
             and item.column() == 4
-            and self.mdl.item(item.row(), 5).data(Qt.EditRole).type()
+            and self.mdl.item(item.row(), 5).data(Qt.ItemDataRole.EditRole).type()
             == QgsMapLayer.LayerType.VectorLayer
         ):
 
