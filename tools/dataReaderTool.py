@@ -34,6 +34,62 @@ from qgis.PyQt.QtCore import QCoreApplication
 from .utils import isProfilable
 
 
+# --- Vector profile memo ---------------------------------------------------
+# One user action recomputes the same profile several times (updateProfil is
+# re-entered with identical inputs). Memoize per layer, dropped on data change.
+_VECTOR_PROFILE_CACHE = {}  # layer_id -> (signature, (profile, buffergeom, multipoly))
+_VECTOR_CACHE_WIRED = set()  # layer_ids whose invalidation signals are connected
+
+
+def _invalidateVectorCache(layer_id):
+    _VECTOR_PROFILE_CACHE.pop(layer_id, None)
+
+
+def _wireProfileCacheInvalidation(layer):
+    """Drop the memoized profile whenever the layer's data changes."""
+    lid = layer.id()
+    if lid in _VECTOR_CACHE_WIRED:
+        return
+    for signal in (
+        layer.dataChanged,
+        layer.attributeValueChanged,
+        layer.geometryChanged,
+        layer.featureAdded,
+        layer.featuresDeleted,
+    ):
+        signal.connect(lambda *a, lid=lid: _invalidateVectorCache(lid))
+    layer.willBeDeleted.connect(
+        lambda lid=lid: (
+            _invalidateVectorCache(lid),
+            _VECTOR_CACHE_WIRED.discard(lid),
+        )
+    )
+    _VECTOR_CACHE_WIRED.add(lid)
+
+
+def _pointXY(feat):
+    geom = feat.geometry()
+    if geom.isEmpty():
+        return (float("nan"), float("nan"))
+    p = geom.asPoint()
+    return (p.x(), p.y())
+
+
+def readPointFeatures(layer):
+    """Read all point features and their layer-CRS coordinates.
+
+    Returns (features, xs, ys) where xs/ys are numpy arrays, used for a
+    vectorized bounding-box prefilter and to build the projection points
+    without constructing a QgsGeometry per candidate. Null-geometry features
+    get NaN coordinates so they fall out of any bbox test.
+    """
+    feats = list(layer.getFeatures())
+    coords = [_pointXY(f) for f in feats]
+    xs = np.array([c[0] for c in coords], dtype=float)
+    ys = np.array([c[1] for c in coords], dtype=float)
+    return feats, xs, ys
+
+
 class DataReaderTool:
     """def __init__(self):
     self.profiles = None"""
@@ -237,6 +293,15 @@ class DataReaderTool:
 
         valbuffer = valbuf1
 
+        # Result memo (see module top): return the cached result for identical
+        # (drawn line, band, buffer) inputs instead of recomputing.
+        _lid = profile1["layer"].id()
+        _sig = (tuple(map(tuple, pointstoDraw1)), profile1["band"], valbuffer)
+        _cached = _VECTOR_PROFILE_CACHE.get(_lid)
+        if _cached is not None and _cached[0] == _sig:
+            _prof, _buf, _multi = _cached[1]
+            return dict(_prof), _buf, _multi
+
         projectedpoints = []
         buffergeom = None
 
@@ -263,17 +328,51 @@ class DataReaderTool:
         buffergeominlayercrs = qgis.core.QgsGeometry(buffergeom)
         tempresult = buffergeominlayercrs.transform(xform)
 
-        featsPnt = profile1["layer"].getFeatures(
-            QgsFeatureRequest().setFilterRect(buffergeominlayercrs.boundingBox())
-        )
+        feats, xs, ys = readPointFeatures(profile1["layer"])
 
-        for featPnt in featsPnt:
-            # iterate preselected point features and perform exact check with current polygon
-            point3 = featPnt.geometry()
-            distpoint = geominlayercrs.distance(point3)
+        # Vectorized bounding-box prefilter (replaces a setFilterRect query) to
+        # cut the candidate set before the exact buffer test.
+        bbox = buffergeominlayercrs.boundingBox()
+        mask = (
+            (xs >= bbox.xMinimum())
+            & (xs <= bbox.xMaximum())
+            & (ys >= bbox.yMinimum())
+            & (ys <= bbox.yMaximum())
+        )
+        candidates = np.nonzero(mask)[0]
+
+        # Precompute the profile line's segments once for a vectorized
+        # point-to-polyline projection. The drawn line can carry thousands of
+        # vertices, so a per-point GEOS distance/lineLocatePoint/interpolate is
+        # prohibitive; numpy over the segment arrays does it in one pass.
+        poly = geominlayercrs.asPolyline()
+        lx = np.array([p.x() for p in poly])
+        ly = np.array([p.y() for p in poly])
+        seg_ax = lx[:-1]
+        seg_ay = ly[:-1]
+        seg_dx = lx[1:] - seg_ax
+        seg_dy = ly[1:] - seg_ay
+        seg_len2 = seg_dx * seg_dx + seg_dy * seg_dy
+        seg_len = np.sqrt(seg_len2)
+        seg_cum = np.concatenate(([0.0], np.cumsum(seg_len)))  # dist to each vertex
+        seg_len2_safe = np.where(seg_len2 == 0.0, 1.0, seg_len2)  # avoid /0 on dupes
+
+        for _idx in candidates:
+            px = xs[_idx]
+            py = ys[_idx]
+            # Project onto every segment (clamped), pick the nearest: gives
+            # distance-to-line, distance-along-line and the foot point at once.
+            t = np.clip(
+                ((px - seg_ax) * seg_dx + (py - seg_ay) * seg_dy) / seg_len2_safe, 0.0, 1.0
+            )
+            footx = seg_ax + t * seg_dx
+            footy = seg_ay + t * seg_dy
+            d2 = (px - footx) ** 2 + (py - footy) ** 2
+            j = int(np.argmin(d2))
+            distpoint = float(np.sqrt(d2[j]))
             if distpoint <= valbuffer:
-                distline = geominlayercrs.lineLocatePoint(point3)
-                pointprojected = geominlayercrs.interpolate(distline)
+                distline = float(seg_cum[j] + t[j] * seg_len[j])
+                featPnt = feats[_idx]
                 if profile1["band"] > -1:
                     try:
                         interptemp = float(featPnt[profile1["band"]])
@@ -286,13 +385,13 @@ class DataReaderTool:
                     projectedpoints.append(
                         [
                             distline,
-                            pointprojected.asPoint().x(),
-                            pointprojected.asPoint().y(),
+                            float(footx[j]),
+                            float(footy[j]),
                             distpoint,
                             0,
                             interptemp,
-                            featPnt.geometry().asPoint().x(),
-                            featPnt.geometry().asPoint().y(),
+                            px,
+                            py,
                             featPnt,
                         ]
                     )
@@ -334,6 +433,8 @@ class DataReaderTool:
             ]
         )
 
+        _VECTOR_PROFILE_CACHE[_lid] = (_sig, (dict(profile), buffergeom, multipoly))
+        _wireProfileCacheInvalidation(profile1["layer"])
         return profile, buffergeom, multipoly
 
     def removeDuplicateLenght(self, projectedpoints):
@@ -425,24 +526,33 @@ class DataReaderTool:
             )
             projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]
 
+        # Distance along the line to each polyline vertex, from cumulative
+        # segment length. Avoids an O(vertices) lineLocatePoint per vertex
+        # (O(vertices^2) overall) on a line that may be a whole track.
+        vx = np.array([p.x() for p in polyline])
+        vy = np.array([p.y() for p in polyline])
+        cumdist = np.concatenate(([0.0], np.cumsum(np.hypot(np.diff(vx), np.diff(vy)))))
+
+        # projectedpoints is sorted by distance-along-line; binary-search it for
+        # the nearest existing sample instead of scanning the whole array.
+        sorted_along = projectedpoints[:, 0].astype(float)
+
         projectedpointsinterp = []
 
-        for i, point in enumerate(polyline):
-            if i == 0:
+        for i in range(1, len(polyline) - 1):
+            lenpoly = cumdist[i]
+            pos = np.searchsorted(sorted_along, lenpoly)
+            nearest = np.inf
+            if pos < len(sorted_along):
+                nearest = abs(sorted_along[pos] - lenpoly)
+            if pos > 0:
+                nearest = min(nearest, abs(sorted_along[pos - 1] - lenpoly))
+            if nearest < PRECISION:
                 continue
-            elif i == len(polyline) - 1:
-                break
-            else:
-                vertexpoint_xy = QgsPointXY(geom.vertexAt(i))
-                # vertexpoint_xy = QgsPointXY(vertexpoint.x(), vertexpoint.y())
-                lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint_xy))
-
-                if min(abs(projectedpoints[:, 0] - lenpoly)) < PRECISION:
-                    continue
-                else:
-                    temp1 = self.interpolatePoint(vertexpoint_xy, geom, projectedpoints)
-                    if temp1 != None:
-                        projectedpointsinterp.append(temp1)
+            vertexpoint_xy = QgsPointXY(geom.vertexAt(i))
+            temp1 = self.interpolatePoint(vertexpoint_xy, lenpoly, projectedpoints)
+            if temp1 is not None:
+                projectedpointsinterp.append(temp1)
 
         temp = projectedpoints.tolist() + projectedpointsinterp
         projectedpoints = np.array(temp)
@@ -451,9 +561,7 @@ class DataReaderTool:
 
         return projectedpoints
 
-    def interpolatePoint(self, vertexpoint, geom, projectedpoints):
-
-        lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint))
+    def interpolatePoint(self, vertexpoint, lenpoly, projectedpoints):
 
         previouspointindex = np.max(np.where(projectedpoints[:, 0] <= lenpoly)[0])
         nextpointindex = np.min(np.where(projectedpoints[:, 0] >= lenpoly)[0])
