@@ -71,6 +71,9 @@ class PlottingTool:
         if library == "PyQtGraph":
             plotWdg = pg.PlotWidget()
             plotWdg.showGrid(True, True, 0.5)
+            # units="m" lets pyqtgraph auto-scale the axis (m -> km) as you zoom.
+            plotWdg.setLabel("bottom", "Distance", units="m")
+            plotWdg.setLabel("left", "Elevation", units="m")
             datavline = pg.InfiniteLine(
                 0, angle=90, pen=pg.mkPen("r", width=1), name="cross_vertical"
             )
@@ -338,6 +341,8 @@ class PlottingTool:
 
     def manageMatplotlibAxe(self, axe1):
         axe1.grid()
+        axe1.set_xlabel("Distance (m)")
+        axe1.set_ylabel("Elevation (m)")
         axe1.tick_params(
             axis="both",
             which="major",

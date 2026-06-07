@@ -90,6 +90,29 @@ def readPointFeatures(layer):
     return feats, xs, ys
 
 
+def lineSegmentDistances(lx, ly, layer_crs):
+    """Per-segment and cumulative ellipsoidal ground distance (metres) along a
+    polyline given as layer-CRS coordinate arrays.
+
+    Measuring on the ellipsoid makes the profile x-axis a true ground distance
+    regardless of the layer CRS, rather than raw CRS units -- e.g. degrees for a
+    geographic CRS like EPSG:4326, where Euclidean coordinate distance is
+    meaningless.
+    """
+    da = QgsDistanceArea()
+    da.setSourceCrs(layer_crs, QgsProject.instance().transformContext())
+    ellipsoid = QgsProject.instance().ellipsoid()
+    da.setEllipsoid(ellipsoid if ellipsoid and ellipsoid != "NONE" else "WGS84")
+
+    n = len(lx)
+    seg_len = np.empty(max(n - 1, 0), dtype=float)
+    for i in range(n - 1):
+        seg_len[i] = da.measureLine(
+            QgsPointXY(lx[i], ly[i]), QgsPointXY(lx[i + 1], ly[i + 1])
+        )
+    return seg_len, np.concatenate(([0.0], np.cumsum(seg_len)))
+
+
 class DataReaderTool:
     """def __init__(self):
     self.profiles = None"""
@@ -330,8 +353,7 @@ class DataReaderTool:
 
         feats, xs, ys = readPointFeatures(profile1["layer"])
 
-        # Vectorized bounding-box prefilter (replaces a setFilterRect query) to
-        # cut the candidate set before the exact buffer test.
+        # Vectorized bounding-box prefilter on the cached coordinates.
         bbox = buffergeominlayercrs.boundingBox()
         mask = (
             (xs >= bbox.xMinimum())
@@ -353,9 +375,12 @@ class DataReaderTool:
         seg_dx = lx[1:] - seg_ax
         seg_dy = ly[1:] - seg_ay
         seg_len2 = seg_dx * seg_dx + seg_dy * seg_dy
-        seg_len = np.sqrt(seg_len2)
-        seg_cum = np.concatenate(([0.0], np.cumsum(seg_len)))  # dist to each vertex
         seg_len2_safe = np.where(seg_len2 == 0.0, 1.0, seg_len2)  # avoid /0 on dupes
+        # Along-line distance in metres (ellipsoidal): the projection below finds
+        # the nearest point in coordinate space, but distance-along-line (the
+        # x-axis) is measured on the ellipsoid so it's a true ground distance,
+        # not raw CRS units (e.g. degrees for EPSG:4326).
+        seg_len, seg_cum = lineSegmentDistances(lx, ly, profile1["layer"].crs())
 
         for _idx in candidates:
             px = xs[_idx]
@@ -398,15 +423,13 @@ class DataReaderTool:
                 except ValueError:
                     print
 
+        # Keep every projected point, sorted by distance along the line. (The
+        # old removeDuplicateLenght() collapsed points within a hardcoded 0.01
+        # CRS-unit window -- ~1 km in a geographic CRS -- which silently
+        # decimated the profile and was order/floating-point unstable.)
         projectedpoints = np.array(projectedpoints)
-
-        # perform postprocess computation
-
         if len(projectedpoints) > 0:
-            # remove duplicates
-            projectedpoints = self.removeDuplicateLenght(projectedpoints)
-            # interpolate value at nodes of polyline
-            projectedpoints = self.interpolateNodeofPolyline(geominlayercrs, projectedpoints)
+            projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]
 
         # preparing return value
         profile = {}
@@ -526,33 +549,25 @@ class DataReaderTool:
             )
             projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]
 
-        # Distance along the line to each polyline vertex, from cumulative
-        # segment length. Avoids an O(vertices) lineLocatePoint per vertex
-        # (O(vertices^2) overall) on a line that may be a whole track.
-        vx = np.array([p.x() for p in polyline])
-        vy = np.array([p.y() for p in polyline])
-        cumdist = np.concatenate(([0.0], np.cumsum(np.hypot(np.diff(vx), np.diff(vy)))))
-
-        # projectedpoints is sorted by distance-along-line; binary-search it for
-        # the nearest existing sample instead of scanning the whole array.
-        sorted_along = projectedpoints[:, 0].astype(float)
-
+        # ABLATION: original per-vertex lineLocatePoint interp (to compare
+        # output against master / control).
         projectedpointsinterp = []
 
-        for i in range(1, len(polyline) - 1):
-            lenpoly = cumdist[i]
-            pos = np.searchsorted(sorted_along, lenpoly)
-            nearest = np.inf
-            if pos < len(sorted_along):
-                nearest = abs(sorted_along[pos] - lenpoly)
-            if pos > 0:
-                nearest = min(nearest, abs(sorted_along[pos - 1] - lenpoly))
-            if nearest < PRECISION:
+        for i, point in enumerate(polyline):
+            if i == 0:
                 continue
-            vertexpoint_xy = QgsPointXY(geom.vertexAt(i))
-            temp1 = self.interpolatePoint(vertexpoint_xy, lenpoly, projectedpoints)
-            if temp1 is not None:
-                projectedpointsinterp.append(temp1)
+            elif i == len(polyline) - 1:
+                break
+            else:
+                vertexpoint_xy = QgsPointXY(geom.vertexAt(i))
+                lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint_xy))
+
+                if min(abs(projectedpoints[:, 0] - lenpoly)) < PRECISION:
+                    continue
+                else:
+                    temp1 = self.interpolatePoint(vertexpoint_xy, geom, projectedpoints)
+                    if temp1 != None:
+                        projectedpointsinterp.append(temp1)
 
         temp = projectedpoints.tolist() + projectedpointsinterp
         projectedpoints = np.array(temp)
@@ -561,7 +576,9 @@ class DataReaderTool:
 
         return projectedpoints
 
-    def interpolatePoint(self, vertexpoint, lenpoly, projectedpoints):
+    def interpolatePoint(self, vertexpoint, geom, projectedpoints):
+
+        lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint))
 
         previouspointindex = np.max(np.where(projectedpoints[:, 0] <= lenpoly)[0])
         nextpointindex = np.min(np.where(projectedpoints[:, 0] >= lenpoly)[0])
