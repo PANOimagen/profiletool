@@ -34,6 +34,95 @@ from qgis.PyQt.QtCore import QCoreApplication
 from .utils import isProfilable
 
 
+class ProfileCache:
+    """Caches dataVectorReaderTool results, one entry per layer.
+
+    A single user action calls updateProfil several times with identical
+    inputs, which would otherwise recompute the same profile every time. Each
+    entry maps a layer id to (signature, result):
+
+      - signature: the inputs the result was computed for -- the drawn line,
+        the sampled band, and the search buffer (see signature()). A request
+        whose signature differs is a miss and recomputes.
+      - result: the (profile, buffergeom, multipoly) tuple from
+        dataVectorReaderTool -- the plot data plus the two on-map geometries.
+
+    An entry is dropped as soon as its layer's data changes (see _register).
+    """
+
+    def __init__(self):
+        self._cache = {}  # layer_id -> (signature, result)
+        self._registered = set()  # layer_ids whose invalidation signals are connected
+
+    @staticmethod
+    def signature(line, band, buffer):
+        """Build the cache key for a profile request.
+
+        Two requests reuse a result only when their line, band and buffer all
+        match, so the signature captures exactly those. The line is converted to
+        nested tuples so the key is hashable and comparable by value.
+        """
+        return (tuple(map(tuple, line)), band, buffer)
+
+    def get(self, layer, signature):
+        """Return the cached result for (layer, signature), or None on a miss."""
+        entry = self._cache.get(layer.id())
+        if entry is not None and entry[0] == signature:
+            return entry[1]
+        return None
+
+    def put(self, layer, signature, result):
+        """Store result for (layer, signature) and register the layer for invalidation."""
+        self._cache[layer.id()] = (signature, result)
+        self._register(layer)
+
+    def invalidate(self, layer_id):
+        self._cache.pop(layer_id, None)
+
+    def _register(self, layer):
+        """Drop this layer's cached profile whenever its data changes."""
+        lid = layer.id()
+        if lid in self._registered:
+            return
+        for signal in (
+            layer.dataChanged,
+            layer.attributeValueChanged,
+            layer.geometryChanged,
+            layer.featureAdded,
+            layer.featuresDeleted,
+        ):
+            signal.connect(lambda *a, lid=lid: self.invalidate(lid))
+        layer.willBeDeleted.connect(
+            lambda lid=lid: (self.invalidate(lid), self._registered.discard(lid))
+        )
+        self._registered.add(lid)
+
+
+# Module-level singleton.
+PROFILE_CACHE = ProfileCache()
+
+
+def _pointXY(feat):
+    geom = feat.geometry()
+    if geom.isEmpty():
+        return (float("nan"), float("nan"))
+    p = geom.asPoint()
+    return (p.x(), p.y())
+
+
+def readPointFeatures(layer):
+    """Read all point features and their layer-CRS coordinates as (features,
+    xs, ys); xs/ys are numpy arrays feeding the vectorized prefilter and
+    projection. Null geometries get NaN coordinates so they fall out of the
+    bbox test.
+    """
+    feats = list(layer.getFeatures())
+    coords = [_pointXY(f) for f in feats]
+    xs = np.array([c[0] for c in coords], dtype=float)
+    ys = np.array([c[1] for c in coords], dtype=float)
+    return feats, xs, ys
+
+
 class DataReaderTool:
     """def __init__(self):
     self.profiles = None"""
@@ -237,6 +326,13 @@ class DataReaderTool:
 
         valbuffer = valbuf1
 
+        # Reuse a cached result for identical inputs instead of recomputing.
+        _sig = PROFILE_CACHE.signature(pointstoDraw1, profile1["band"], valbuffer)
+        _cached = PROFILE_CACHE.get(profile1["layer"], _sig)
+        if _cached is not None:
+            _prof, _buf, _multi = _cached
+            return dict(_prof), _buf, _multi
+
         projectedpoints = []
         buffergeom = None
 
@@ -263,17 +359,49 @@ class DataReaderTool:
         buffergeominlayercrs = qgis.core.QgsGeometry(buffergeom)
         tempresult = buffergeominlayercrs.transform(xform)
 
-        featsPnt = profile1["layer"].getFeatures(
-            QgsFeatureRequest().setFilterRect(buffergeominlayercrs.boundingBox())
-        )
+        feats, xs, ys = readPointFeatures(profile1["layer"])
 
-        for featPnt in featsPnt:
-            # iterate preselected point features and perform exact check with current polygon
-            point3 = featPnt.geometry()
-            distpoint = geominlayercrs.distance(point3)
+        # Vectorized bounding-box prefilter to cut the candidate set before the
+        # exact buffer test.
+        bbox = buffergeominlayercrs.boundingBox()
+        mask = (
+            (xs >= bbox.xMinimum())
+            & (xs <= bbox.xMaximum())
+            & (ys >= bbox.yMinimum())
+            & (ys <= bbox.yMaximum())
+        )
+        candidates = np.nonzero(mask)[0]
+
+        # Precompute the line's segments once and project all candidates onto
+        # them with numpy in one pass; the drawn line can have thousands of vertices.
+        poly = geominlayercrs.asPolyline()
+        lx = np.array([p.x() for p in poly])
+        ly = np.array([p.y() for p in poly])
+        seg_ax = lx[:-1]
+        seg_ay = ly[:-1]
+        seg_dx = lx[1:] - seg_ax
+        seg_dy = ly[1:] - seg_ay
+        seg_len2 = seg_dx * seg_dx + seg_dy * seg_dy
+        seg_len = np.sqrt(seg_len2)
+        seg_cum = np.concatenate(([0.0], np.cumsum(seg_len)))  # dist to each vertex
+        seg_len2_safe = np.where(seg_len2 == 0.0, 1.0, seg_len2)  # avoid /0 on dupes
+
+        for _idx in candidates:
+            px = xs[_idx]
+            py = ys[_idx]
+            # Project onto every segment (clamped), pick the nearest: gives
+            # distance-to-line, distance-along-line and the foot point at once.
+            t = np.clip(
+                ((px - seg_ax) * seg_dx + (py - seg_ay) * seg_dy) / seg_len2_safe, 0.0, 1.0
+            )
+            footx = seg_ax + t * seg_dx
+            footy = seg_ay + t * seg_dy
+            d2 = (px - footx) ** 2 + (py - footy) ** 2
+            j = int(np.argmin(d2))
+            distpoint = float(np.sqrt(d2[j]))
             if distpoint <= valbuffer:
-                distline = geominlayercrs.lineLocatePoint(point3)
-                pointprojected = geominlayercrs.interpolate(distline)
+                distline = float(seg_cum[j] + t[j] * seg_len[j])
+                featPnt = feats[_idx]
                 if profile1["band"] > -1:
                     try:
                         interptemp = float(featPnt[profile1["band"]])
@@ -286,13 +414,13 @@ class DataReaderTool:
                     projectedpoints.append(
                         [
                             distline,
-                            pointprojected.asPoint().x(),
-                            pointprojected.asPoint().y(),
+                            float(footx[j]),
+                            float(footy[j]),
                             distpoint,
                             0,
                             interptemp,
-                            featPnt.geometry().asPoint().x(),
-                            featPnt.geometry().asPoint().y(),
+                            px,
+                            py,
                             featPnt,
                         ]
                     )
@@ -334,6 +462,7 @@ class DataReaderTool:
             ]
         )
 
+        PROFILE_CACHE.put(profile1["layer"], _sig, (dict(profile), buffergeom, multipoly))
         return profile, buffergeom, multipoly
 
     def removeDuplicateLenght(self, projectedpoints):
@@ -425,24 +554,31 @@ class DataReaderTool:
             )
             projectedpoints = projectedpoints[projectedpoints[:, 0].argsort()]
 
+        # Distance along the line to each vertex, from cumulative segment length.
+        vx = np.array([p.x() for p in polyline])
+        vy = np.array([p.y() for p in polyline])
+        cumdist = np.concatenate(([0.0], np.cumsum(np.hypot(np.diff(vx), np.diff(vy)))))
+
+        # projectedpoints is sorted by distance-along-line; binary-search it for
+        # the nearest existing sample instead of scanning the whole array.
+        sorted_along = projectedpoints[:, 0].astype(float)
+
         projectedpointsinterp = []
 
-        for i, point in enumerate(polyline):
-            if i == 0:
+        for i in range(1, len(polyline) - 1):
+            lenpoly = cumdist[i]
+            pos = np.searchsorted(sorted_along, lenpoly)
+            nearest = np.inf
+            if pos < len(sorted_along):
+                nearest = abs(sorted_along[pos] - lenpoly)
+            if pos > 0:
+                nearest = min(nearest, abs(sorted_along[pos - 1] - lenpoly))
+            if nearest < PRECISION:
                 continue
-            elif i == len(polyline) - 1:
-                break
-            else:
-                vertexpoint_xy = QgsPointXY(geom.vertexAt(i))
-                # vertexpoint_xy = QgsPointXY(vertexpoint.x(), vertexpoint.y())
-                lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint_xy))
-
-                if min(abs(projectedpoints[:, 0] - lenpoly)) < PRECISION:
-                    continue
-                else:
-                    temp1 = self.interpolatePoint(vertexpoint_xy, geom, projectedpoints)
-                    if temp1 != None:
-                        projectedpointsinterp.append(temp1)
+            vertexpoint_xy = QgsPointXY(geom.vertexAt(i))
+            temp1 = self.interpolatePoint(vertexpoint_xy, lenpoly, projectedpoints)
+            if temp1 is not None:
+                projectedpointsinterp.append(temp1)
 
         temp = projectedpoints.tolist() + projectedpointsinterp
         projectedpoints = np.array(temp)
@@ -451,9 +587,7 @@ class DataReaderTool:
 
         return projectedpoints
 
-    def interpolatePoint(self, vertexpoint, geom, projectedpoints):
-
-        lenpoly = geom.lineLocatePoint(qgis.core.QgsGeometry.fromPointXY(vertexpoint))
+    def interpolatePoint(self, vertexpoint, lenpoly, projectedpoints):
 
         previouspointindex = np.max(np.where(projectedpoints[:, 0] <= lenpoly)[0])
         nextpointindex = np.min(np.where(projectedpoints[:, 0] >= lenpoly)[0])

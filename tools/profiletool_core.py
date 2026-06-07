@@ -181,13 +181,17 @@ class ProfileToolCore(QWidget):
                 self.dockwidget.mdl.item(i, 5).data(Qt.ItemDataRole.EditRole).type()
                 == QgsMapLayer.VectorLayer
             ):
-                self.profiles[i], _, _ = DataReaderTool().dataVectorReaderTool(
+                self.profiles[i], _buffer, _multipoly = DataReaderTool().dataVectorReaderTool(
                     self.iface,
                     self.toolrenderer.tool,
                     self.profiles[i],
                     self.pointstoDraw,
                     float(self.dockwidget.mdl.item(i, 4).data(Qt.ItemDataRole.EditRole)),
                 )
+                # Stash the buffer/projection geometries so plotProfil can reuse
+                # them instead of recomputing the whole vector profile.
+                self.profiles[i]["buffergeom"] = _buffer
+                self.profiles[i]["multipoly"] = _multipoly
             else:
                 if self.dockwidget.profileInterpolationCheckBox.isChecked():
                     if self.dockwidget.fullResolutionCheckBox.isChecked():
@@ -222,22 +226,16 @@ class ProfileToolCore(QWidget):
                 self.dockwidget, self.pointstoDraw, self.dockwidget.plotlibrary
             )
 
-        # calculate buffer geometries if search buffer is set in mdt layer
+        # Reuse the buffer geometries computed during updateProfil instead of
+        # recomputing the whole vector profile a second time.
         geoms = []
         for i in range(0, self.dockwidget.mdl.rowCount()):
             if (
                 self.dockwidget.mdl.item(i, 5).data(Qt.ItemDataRole.EditRole).type()
                 == QgsMapLayer.VectorLayer
             ):
-                _, buffer, multipoly = DataReaderTool().dataVectorReaderTool(
-                    self.iface,
-                    self.toolrenderer.tool,
-                    self.profiles[i],
-                    self.pointstoDraw,
-                    float(self.dockwidget.mdl.item(i, 4).data(Qt.ItemDataRole.EditRole)),
-                )
-                geoms.append(buffer)
-                geoms.append(multipoly)
+                geoms.append(self.profiles[i].get("buffergeom"))
+                geoms.append(self.profiles[i].get("multipoly"))
         self.toolrenderer.setBufferGeometry(geoms)
 
         # Update coordinates to use in plot (height, slope %...)
