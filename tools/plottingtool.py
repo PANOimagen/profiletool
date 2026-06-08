@@ -72,8 +72,8 @@ class PlottingTool:
             plotWdg = pg.PlotWidget()
             plotWdg.showGrid(True, True, 0.5)
             # units="m" lets pyqtgraph auto-scale the axis (m -> km) as you zoom.
+            # The y label is set per plot type by setYAxisLabel().
             plotWdg.setLabel("bottom", "Distance", units="m")
-            plotWdg.setLabel("left", "Elevation", units="m")
             datavline = pg.InfiniteLine(
                 0, angle=90, pen=pg.mkPen("r", width=1), name="cross_vertical"
             )
@@ -134,6 +134,19 @@ class PlottingTool:
             sizePolicy.setVerticalStretch(0)
             canvas.setSizePolicy(sizePolicy)
             return canvas
+
+    def setYAxisLabel(self, wdg, library, label, units):
+        """Set the y-axis label for the current profile type (Height / Slope).
+
+        units is the SI unit string for pyqtgraph auto-scaling, or None to bake
+        the unit into the label text (used for "%" / "°", which must not be SI
+        prefixed).
+        """
+        if library == "PyQtGraph":
+            wdg.plotWdg.setLabel("left", label, units=units)
+        elif library == "Matplotlib" and has_mpl:
+            text = label if units is None else "%s (%s)" % (label, units)
+            wdg.plotWdg.figure.get_axes()[0].set_ylabel(text)
 
     def drawVertLine(self, wdg, pointstoDraw, library):
         if library == "PyQtGraph":
@@ -341,8 +354,7 @@ class PlottingTool:
 
     def manageMatplotlibAxe(self, axe1):
         axe1.grid()
-        axe1.set_xlabel("Distance (m)")
-        axe1.set_ylabel("Elevation (m)")
+        axe1.set_xlabel("Distance (m)")  # y label is set per plot type by setYAxisLabel()
         axe1.tick_params(
             axis="both",
             which="major",

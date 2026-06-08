@@ -216,6 +216,9 @@ class ProfileToolCore(QWidget):
             self.plotProfil()
 
     def plotProfil(self, vertline=True):
+        if self.profiles is None:
+            # e.g. the smoothing spinbox changed before any profile was drawn
+            return
         self.disableMouseCoordonates()
 
         self.removeClosedLayers(self.dockwidget.mdl)
@@ -239,10 +242,16 @@ class ProfileToolCore(QWidget):
         self.toolrenderer.setBufferGeometry(geoms)
 
         # Update coordinates to use in plot (height, slope %...)
-        profile_func = profilers.PLOT_PROFILERS[self.dockwidget.plotComboBox.currentText()]
+        plot_type = self.dockwidget.plotComboBox.currentText()
+        profile_func = profilers.PLOT_PROFILERS[plot_type]
+        ylabel, yunits = profilers.PLOT_PROFILERS_YAXIS.get(plot_type, (plot_type, None))
+        PlottingTool().setYAxisLabel(
+            self.dockwidget, self.dockwidget.plotlibrary, ylabel, yunits
+        )
 
+        window = self.dockwidget.smoothingSpinBox.value()
         for profile in self.profiles:
-            profile["plot_x"], profile["plot_y"] = profile_func(profile)
+            profile["plot_x"], profile["plot_y"] = profile_func(profile, window)
 
         # plot profiles
         PlottingTool().attachCurves(

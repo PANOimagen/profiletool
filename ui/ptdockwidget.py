@@ -44,8 +44,10 @@ from qgis.PyQt.QtGui import QStandardItemModel
 from qgis.PyQt.QtWidgets import (
     QApplication,
     QDockWidget,
+    QDoubleSpinBox,
     QGroupBox,
     QHBoxLayout,
+    QLabel,
     QPushButton,
     QSizePolicy,
     QTableView,
@@ -53,6 +55,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 # plugin import
+from ..tools import profilers
 from ..tools.plottingtool import PlottingTool
 from ..tools.tableviewtool import TableViewTool
 
@@ -118,6 +121,23 @@ class PTDockWidget(QDockWidget, FormClass):
         self.plotlibrary = None  # The plotting library to use
         self.showcursor = True
 
+        # Smoothing window (metres): one control for all plot types -- it smooths
+        # elevation for Height and is the slope-averaging window for Slope (%) /
+        # Slope (°). Added next to the plot-type combo.
+        self.smoothingSpinBox = QDoubleSpinBox()
+        self.smoothingSpinBox.setRange(0, 100000)
+        self.smoothingSpinBox.setSingleStep(100)
+        self.smoothingSpinBox.setValue(profilers.DEFAULT_WINDOW_M)
+        self.smoothingSpinBox.setSuffix(" m")
+        self.smoothingSpinBox.setToolTip(
+            self.tr(
+                "Smoothing distance. Smooths elevation for Height and sets the "
+                "slope-averaging window for Slope (%) / Slope (°). 0 = raw."
+            )
+        )
+        self.horizontalLayout_3.addWidget(QLabel(self.tr("Smoothing:")))
+        self.horizontalLayout_3.addWidget(self.smoothingSpinBox)
+
         # Signals
         self.butSaveAs.clicked.connect(self.saveAs)
         self.tableView.clicked.connect(self._onClick)
@@ -132,6 +152,8 @@ class PTDockWidget(QDockWidget, FormClass):
         self.cbLiveUpdate.stateChanged.connect(self.liveUpdateChanged)
         self.fullResolutionCheckBox.stateChanged.connect(self.refreshPlot)
         self.profileInterpolationCheckBox.stateChanged.connect(self.refreshPlot)
+        # Re-derive the plot from the existing profile (no re-projection needed).
+        self.smoothingSpinBox.valueChanged.connect(self.profiletoolcore.plotProfil)
 
         self.cbSameAxisScale.stateChanged.connect(self._onSameAxisScaleStateChanged)
 
