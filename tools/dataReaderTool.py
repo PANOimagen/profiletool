@@ -34,37 +34,54 @@ from qgis.PyQt.QtCore import QCoreApplication
 from .utils import isProfilable
 
 
-# --- Vector profile memo ---------------------------------------------------
-# One user action recomputes the same profile several times (updateProfil is
-# re-entered with identical inputs). Memoize per layer, dropped on data change.
-_VECTOR_PROFILE_CACHE = {}  # layer_id -> (signature, (profile, buffergeom, multipoly))
-_VECTOR_CACHE_WIRED = set()  # layer_ids whose invalidation signals are connected
+class ProfileCache:
+    """Per-layer cache of dataVectorReaderTool results.
 
+    A single user action calls updateProfil several times with the same inputs,
+    so the same profile would otherwise be computed repeatedly. The cached
+    result for a layer is dropped whenever that layer's data changes.
+    """
 
-def _invalidateVectorCache(layer_id):
-    _VECTOR_PROFILE_CACHE.pop(layer_id, None)
+    def __init__(self):
+        self._cache = {}  # layer_id -> (signature, (profile, buffergeom, multipoly))
+        self._wired = set()  # layer_ids whose invalidation signals are connected
 
+    def get(self, layer, signature):
+        """Return the cached result for (layer, signature), or None on a miss."""
+        entry = self._cache.get(layer.id())
+        if entry is not None and entry[0] == signature:
+            return entry[1]
+        return None
 
-def _wireProfileCacheInvalidation(layer):
-    """Drop the memoized profile whenever the layer's data changes."""
-    lid = layer.id()
-    if lid in _VECTOR_CACHE_WIRED:
-        return
-    for signal in (
-        layer.dataChanged,
-        layer.attributeValueChanged,
-        layer.geometryChanged,
-        layer.featureAdded,
-        layer.featuresDeleted,
-    ):
-        signal.connect(lambda *a, lid=lid: _invalidateVectorCache(lid))
-    layer.willBeDeleted.connect(
-        lambda lid=lid: (
-            _invalidateVectorCache(lid),
-            _VECTOR_CACHE_WIRED.discard(lid),
+    def put(self, layer, signature, result):
+        """Cache result for (layer, signature) and wire its invalidation."""
+        self._cache[layer.id()] = (signature, result)
+        self._wire(layer)
+
+    def invalidate(self, layer_id):
+        self._cache.pop(layer_id, None)
+
+    def _wire(self, layer):
+        """Drop this layer's cached profile whenever its data changes."""
+        lid = layer.id()
+        if lid in self._wired:
+            return
+        for signal in (
+            layer.dataChanged,
+            layer.attributeValueChanged,
+            layer.geometryChanged,
+            layer.featureAdded,
+            layer.featuresDeleted,
+        ):
+            signal.connect(lambda *a, lid=lid: self.invalidate(lid))
+        layer.willBeDeleted.connect(
+            lambda lid=lid: (self.invalidate(lid), self._wired.discard(lid))
         )
-    )
-    _VECTOR_CACHE_WIRED.add(lid)
+        self._wired.add(lid)
+
+
+# Module-level singleton.
+PROFILE_CACHE = ProfileCache()
 
 
 def _pointXY(feat):
@@ -91,13 +108,14 @@ def readPointFeatures(layer):
 
 
 def lineSegmentDistances(lx, ly, layer_crs):
-    """Per-segment and cumulative ellipsoidal ground distance (metres) along a
-    polyline given as layer-CRS coordinate arrays.
+    """Ground distance (metres) along a polyline, measured on the ellipsoid.
 
-    Measuring on the ellipsoid makes the profile x-axis a true ground distance
-    regardless of the layer CRS, rather than raw CRS units -- e.g. degrees for a
-    geographic CRS like EPSG:4326, where Euclidean coordinate distance is
-    meaningless.
+    Returns (seg_len, seg_cum):
+      - seg_len: length of each segment (N-1 values for N vertices)
+      - seg_cum: distance from the start to each vertex (N values, starting at 0)
+
+    Measuring on the ellipsoid makes the x-axis a real distance in metres rather
+    than raw CRS units (e.g. degrees for EPSG:4326).
     """
     da = QgsDistanceArea()
     da.setSourceCrs(layer_crs, QgsProject.instance().transformContext())
@@ -316,13 +334,12 @@ class DataReaderTool:
 
         valbuffer = valbuf1
 
-        # Result memo (see module top): return the cached result for identical
+        # Result cache (see ProfileCache): return the cached result for identical
         # (drawn line, band, buffer) inputs instead of recomputing.
-        _lid = profile1["layer"].id()
         _sig = (tuple(map(tuple, pointstoDraw1)), profile1["band"], valbuffer)
-        _cached = _VECTOR_PROFILE_CACHE.get(_lid)
-        if _cached is not None and _cached[0] == _sig:
-            _prof, _buf, _multi = _cached[1]
+        _cached = PROFILE_CACHE.get(profile1["layer"], _sig)
+        if _cached is not None:
+            _prof, _buf, _multi = _cached
             return dict(_prof), _buf, _multi
 
         projectedpoints = []
@@ -456,6 +473,5 @@ class DataReaderTool:
             ]
         )
 
-        _VECTOR_PROFILE_CACHE[_lid] = (_sig, (dict(profile), buffergeom, multipoly))
-        _wireProfileCacheInvalidation(profile1["layer"])
+        PROFILE_CACHE.put(profile1["layer"], _sig, (dict(profile), buffergeom, multipoly))
         return profile, buffergeom, multipoly

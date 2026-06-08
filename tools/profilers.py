@@ -67,7 +67,9 @@ def slopes_pct(p, window=0.0):
         return x, slope_pct
 
     if window <= 0:
-        seg = 100.0 * (y[1:] - y[:-1]) / (x[1:] - x[:-1])
+        # coincident points give dx == 0; the resulting inf/nan is zeroed below
+        with np.errstate(divide="ignore", invalid="ignore"):
+            seg = 100.0 * (y[1:] - y[:-1]) / (x[1:] - x[:-1])
         slope_pct = np.concatenate((seg[0:1], 0.5 * (seg[1:] + seg[:-1]), seg[-1:]))
         slope_pct[~np.isfinite(slope_pct)] = 0
         return x, slope_pct
